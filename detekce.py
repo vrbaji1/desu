@@ -45,28 +45,31 @@ def getStatNFData():
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
-  #TODO
-  print("DEBUG stderr: %s" % stderr.decode())
-  print(stdout.decode().strip().split('\n'))
-  for radek in stdout.decode().strip().split('\n'):
-    print(radek)
+  if (stderr):
+    raise RuntimeError("ERROR Spusteni nfdump prikazu v getStatNFData skoncilo chybou: '%s'!" % (stderr.decode()))
+
+  #DEBUG
+  #print(stdout.decode().strip().split('\n'))
+  #for radek in stdout.decode().strip().split('\n'):
+  #  print(radek)
 
   chcemeKlice=['val', 'fl']
   nfData=[]
   tmpD=D=None
   reader=csv.reader(stdout.decode().strip().split('\n'))
-  keys=next(reader)
-  #print("DEBUG klice: %s" % keys)
+  klice=next(reader)
+  #print("DEBUG klice: %s" % klice)
+  #kontrola, jestli jsou vsechny klice dostupne
   for k in chcemeKlice:
-    if k not in keys:
+    if k not in klice:
       raise RuntimeError("ERROR V NetFlow datech nenachazim zaznam s klicem '%s'!" % (k))
   for i in reader:
-    print("DEBUG '%s'" % i)
-    #statistiky nfdump nas nezajimaji
+    #print("DEBUG '%s'" % i)
+    #statistiky nfdump nas nezajimaji - jsou oddeleny prazdnym radkem
     if (i==[]):
       break
     #z kazdeho radku udelame slovnik pomoci hlavicky souboru
-    tmpD=dict(zip(keys,i))
+    tmpD=dict(zip(klice,i))
     #print(tmpD)
     #ale nechame si jen klice, ktere nas zajimaji
     D = dict((k, tmpD[k]) for k in chcemeKlice)
@@ -84,8 +87,10 @@ def getNFData():
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
-  #TODO
-  #print("DEBUG stderr: %s" % stderr.decode())
+  if (stderr):
+    raise RuntimeError("ERROR Spusteni nfdump prikazu v getNFData skoncilo chybou: '%s'!" % (stderr.decode()))
+
+  #DEBUG
   #print(stdout.decode().strip().split('\n'))
   #for radek in stdout.decode().strip().split('\n'):
   #  print(radek)
@@ -94,18 +99,19 @@ def getNFData():
   nfData=[]
   tmpD=D=None
   reader=csv.reader(stdout.decode().strip().split('\n'))
-  keys=next(reader)
-  #print("DEBUG klice: %s" % keys)
+  klice=next(reader)
+  #print("DEBUG klice: %s" % klice)
+  #kontrola, jestli jsou vsechny klice dostupne
   for k in chcemeKlice:
-    if k not in keys:
+    if k not in klice:
       raise RuntimeError("ERROR V NetFlow datech nenachazim zaznam s klicem '%s'!" % (k))
   for i in reader:
     #print("DEBUG '%s'" % i)
-    #statistiky nfdump nas nezajimaji
+    #statistiky nfdump nas nezajimaji - jsou oddeleny radkem 'Summary'
     if (i==['Summary']):
       break
     #z kazdeho radku udelame slovnik pomoci hlavicky souboru
-    tmpD=dict(zip(keys,i))
+    tmpD=dict(zip(klice,i))
     #print(tmpD)
     #ale nechame si jen klice, ktere nas zajimaji
     D = dict((k, tmpD[k]) for k in chcemeKlice)
