@@ -24,7 +24,7 @@ LNET="(src net 10.0.0.0/8 or src net 198.51.100.0/24 or src net 2001:db8::/32)"
 
 def usage(vystup):
   """ Použití programu
-  @param vystup: Kam se bude vypisovat - nejbezneji sys.stderr nebo sys.stdout
+  @param vystup: Kam se bude vypisovat - nejběžněji sys.stderr nebo sys.stdout
   """
   vystup.write("""Detekce útoků z NetFlow dat.
 
@@ -37,11 +37,14 @@ Pouziti:
   \n""" % (sys.argv[0]))
 
 
-def getStatNFData():
-  """ Načte statistiky z NetFlow dat.
+def getStatNFData(filtr, agreg):
+  """ Načte statistiky z NetFlow dat dle zadaného filtru.
+  @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
+  @param agreg: Agregační klíč, podle kterého seskupovat záznamy
+  @return: Slovník s daty.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv","dst port 22 and %s" % LNET,"-s","srcip/flows"]
+  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv",filtr,"-s","%s/flows" % agreg]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -79,11 +82,13 @@ def getStatNFData():
   return nfData
 
 
-def getNFData():
-  """ Načte NetFlow data.
+def getNFData(filtr):
+  """ Načte NetFlow data dle zadaného filtru.
+  @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
+  @return: Slovník s daty.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv","dst port 22 and %s" % LNET]
+  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv",filtr]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -142,7 +147,7 @@ if __name__ == "__main__":
     usage(sys.stderr)
     sys.exit(1)
 
-  nfData=getStatNFData()
+  nfData=getStatNFData("dst port 22 and %s" % LNET, "srcip")
   tmpPamet=sys.getsizeof(nfData)
   for i in nfData:
     tmpPamet+=sys.getsizeof(i)
