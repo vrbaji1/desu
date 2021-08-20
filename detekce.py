@@ -18,6 +18,9 @@ import sys, signal, getpass, getopt, subprocess, csv
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+#TODO lokalni sit - zadat vsechny lokalni i verejne rozsahy IP i IPv6
+LNET="(src net 10.0.0.0/8 or src net 198.51.100.0/24 or src net 2001:db8::/32)"
+
 
 def usage(vystup):
   """ Použití programu
@@ -38,7 +41,7 @@ def getStatNFData():
   """ Načte statistiky z NetFlow dat.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv","dst port 22","-s","srcip/flows","-n","0"]
+  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv","dst port 22 and %s" % LNET,"-s","srcip/flows"]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -77,7 +80,7 @@ def getNFData():
   """ Načte NetFlow data.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv","port 22"]
+  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv","dst port 22 and %s" % LNET]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
