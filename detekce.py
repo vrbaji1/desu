@@ -44,7 +44,7 @@ def getStatNFData(filtr, agreg):
   @return: Slovník s daty.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv",filtr,"-s","%s/flows" % agreg]
+  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -147,10 +147,17 @@ if __name__ == "__main__":
     usage(sys.stderr)
     sys.exit(1)
 
-  nfData=getStatNFData("dst port 22 and %s" % LNET, "srcip")
-  tmpPamet=sys.getsizeof(nfData)
-  for i in nfData:
-    tmpPamet+=sys.getsizeof(i)
-  print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
-  print("DEBUG NetFlow data: %s" % nfData)
+  #nfData=getStatNFData("dst port 22 and %s" % LNET, "srcip")
+  #tmpPamet=sys.getsizeof(nfData)
+  #for i in nfData:
+  #  tmpPamet+=sys.getsizeof(i)
+  #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
+  #print("DEBUG NetFlow data: %s" % nfData)
 
+  #detekce ssh bruteforce z vnitrni site
+  nfStat=getStatNFData("dst port 22 and %s" % LNET, "srcip")
+  print("DEBUG NetFlow data: %s" % nfStat)
+  for i in nfStat:
+    print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("dst port 22 and %s" % LNET, "dstip"))
+    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
