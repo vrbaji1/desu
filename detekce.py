@@ -182,7 +182,14 @@ if __name__ == "__main__":
     ruznych=len(getStatNFData("dst port 23 and %s" % SRC_LNET, "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
-  #TODO nebudeme resit jinak?
-  #detekce velke mnozstvi oteviranych spojeni
-  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip", mintoku=5000)
+  #detekce velke mnozstvi oteviranych spojeni - TODO nebudeme resit jinak?
+  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip", mintoku=10000)
   print("\nDEBUG NetFlow data (mnoho spojeni): %s" % nfStat)
+
+  #detekce dle TCP priznaku Urgent - zatim jen testovaci
+  nfStat=getStatNFData("flags U and %s" % SRC_LNET, "srcip", mintoku=100)
+  print("\nDEBUG NetFlow data (TCP urgent): %s" % nfStat)
+
+  #detekce velkeho mnozstvi UDP toku - zatim jen testovaci
+  nfStat=getStatNFData("proto UDP and %s" % SRC_LNET, "srcip", mintoku=10000)
+  print("\nDEBUG NetFlow data (mnoho UDP spojeni): %s" % nfStat)
