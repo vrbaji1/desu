@@ -12,15 +12,21 @@ Dne: 30.7.2o21
 Posledni uprava: 20.8.2o21
 """
 
-import sys, signal, getpass, getopt, subprocess, csv
+import sys, signal, getpass, getopt, subprocess, csv, os
+from datetime import datetime, timedelta
 
 #standardni chovani pri CTRL+C nebo ukonceni roury
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+
+#jak casto jsou rotovany soubory s NetFlow daty
+TIME=10 #[m]
+
 #TODO lokalni sit - zadat vsechny lokalni i verejne rozsahy IP i IPv6
 SRC_LNET="(src net 10.0.0.0/8 or src net 198.51.100.0/24 or src net 2001:db8::/32)"
 DST_LNET="(dst net 10.0.0.0/8 or dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
+
 #TODO docasne pro testovani
 SOUBOR="nfcapd.tmp"
 
@@ -48,8 +54,11 @@ def getStatNFData(filtr, agreg, mintoku=None):
   @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
-  #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
+  if (netflow_adr_cist!=None):
+    prikaz = ["nfdump","-M","/netflow-zakaznicke/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  else:
+    prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -90,6 +99,7 @@ def getStatNFData(filtr, agreg, mintoku=None):
   return nfData
 
 
+#TODO pokud budeme pouzivat i tuto funkci, upravit nfdump viz getStatNFData
 def getNFData(filtr):
   """ Načte NetFlow data dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
@@ -155,9 +165,36 @@ if __name__ == "__main__":
   #  usage(sys.stderr)
   #  sys.exit(1)
 
-  #TODO docasne pro testovani
+  #TODO docasne pro testovani cteni jen konkretniho souboru s daty
   if (len(sys.argv) == 2):
     SOUBOR=sys.argv[1]
+    netflow_adr_cist=None
+  #jinak cteni aktualnich souboru s daty ze vsech sond
+  else:
+    #nazev souboru je dle zacatku zaznamu, tedy TIME minut zpetne
+    cas=datetime.now()-timedelta(minutes=TIME)
+    #casovy udaj, pro ktery nas zajimaji statistiky - napr 202108261720 pro 26.8.2021 17:20
+    soubor_cast1=cas.strftime("%Y%m%d%H")
+    #oriznout celociselnym delenim na cele desitky
+    soubor_cast2=int(int(cas.strftime("%M"))/TIME)*TIME
+    #podadresar ve formatu 2021-08-26
+    podadresar="%s" % cas.strftime("%Y-%m-%d")
+    #format 2021-08-26/nfcapd.202108261720
+    SOUBOR="%s/nfcapd.%s%02d" % (podadresar,soubor_cast1,soubor_cast2)
+    print("DEBUG sbiram statistiky ze souboru %s\n" % SOUBOR)
+
+    L_adr=[]
+    for nfAdresar in os.listdir('/netflow-zakaznicke'):
+      if os.path.isdir("/netflow/%s" % nfAdresar):
+        if (os.path.isfile("/netflow/%s/%s" % (nfAdresar,SOUBOR))):
+          L_adr.append(nfAdresar)
+        else:
+          sys.stderr.write("WARNING Nenalezen soubor /netflow/%s/%s , nemame udaje z dane sondy!\n" % (nfAdresar,SOUBOR))
+    netflow_adr_cist=':'.join(L_adr)
+    sys.stderr.write("DEBUG ctu z adresaru: %s\n" % netflow_adr_cist)
+    if (netflow_adr_cist==""):
+      sys.stderr.write("ERROR Nejsou dostupna zadna data, koncim!\n")
+      sys.exit(1)
 
   #nfData=getStatNFData("dst port 22 and %s" % LNET, "srcip")
   #tmpPamet=sys.getsizeof(nfData)
