@@ -19,7 +19,10 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 #TODO lokalni sit - zadat vsechny lokalni i verejne rozsahy IP i IPv6
-LNET="(src net 10.0.0.0/8 or src net 198.51.100.0/24 or src net 2001:db8::/32)"
+SRC_LNET="(src net 10.0.0.0/8 or src net 198.51.100.0/24 or src net 2001:db8::/32)"
+DST_LNET="(dst net 10.0.0.0/8 or dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
+#TODO docasne pro testovani
+SOUBOR="nfcapd.tmp"
 
 
 def usage(vystup):
@@ -41,10 +44,11 @@ def getStatNFData(filtr, agreg):
   """ Načte statistiky z NetFlow dat dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
   @param agreg: Agregační klíč, podle kterého seskupovat záznamy
-  @return: Slovník s daty.
+  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -85,10 +89,10 @@ def getStatNFData(filtr, agreg):
 def getNFData(filtr):
   """ Načte NetFlow data dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
-  @return: Slovník s daty.
+  @return: Seznam slovníků s daty. Klíčem slovníku jsou sa, da, sp, dp, pr, flg, ipkt a ibyt.
   """
   #TODO nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-r","nfcapd.tmp","-o","csv",filtr]
+  prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -142,10 +146,14 @@ if __name__ == "__main__":
       usage(sys.stdout)
       sys.exit()
 
-  if (len(sys.argv) != 1):
-    sys.stderr.write("Spatny pocet parametru.\n")
-    usage(sys.stderr)
-    sys.exit(1)
+  #if (len(sys.argv) != 1):
+  #  sys.stderr.write("Spatny pocet parametru.\n")
+  #  usage(sys.stderr)
+  #  sys.exit(1)
+
+  #TODO docasne pro testovani
+  if (len(sys.argv) == 2):
+    SOUBOR=sys.argv[1]
 
   #nfData=getStatNFData("dst port 22 and %s" % LNET, "srcip")
   #tmpPamet=sys.getsizeof(nfData)
@@ -155,9 +163,21 @@ if __name__ == "__main__":
   #print("DEBUG NetFlow data: %s" % nfData)
 
   #detekce ssh bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 22 and %s" % LNET, "srcip")
+  nfStat=getStatNFData("dst port 22 and %s" % SRC_LNET, "srcip")
   print("DEBUG NetFlow data: %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port 22 and %s" % LNET, "dstip"))
+    ruznych=len(getStatNFData("dst port 22 and %s" % SRC_LNET, "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #detekce telnet bruteforce z vnitrni site
+  nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip")
+  print("DEBUG NetFlow data: %s" % nfStat)
+  for i in nfStat:
+    print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("dst port 23 and %s" % SRC_LNET, "dstip"))
+    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #detekce velke mnozstvi oteviranych spojeni
+  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip")
+  print("DEBUG NetFlow data: %s" % nfStat)
