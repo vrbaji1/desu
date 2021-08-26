@@ -40,15 +40,16 @@ Pouziti:
   \n""" % (sys.argv[0]))
 
 
-def getStatNFData(filtr, agreg):
+def getStatNFData(filtr, agreg, mintoku=None):
   """ Načte statistiky z NetFlow dat dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
   @param agreg: Agregační klíč, podle kterého seskupovat záznamy
+  @param mintoku: Získat jen záznamy s alespoň takovýmto počtem toků.
   @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
   """
   #TODO nacteni dat pomoci nfdump
   prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
-  print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
+  #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -81,6 +82,9 @@ def getStatNFData(filtr, agreg):
     #ale nechame si jen klice, ktere nas zajimaji
     D = dict((k, tmpD[k]) for k in chcemeKlice)
     #print(str(D))
+    #filtrace podle mintoku, pokud je zapnuto
+    if (mintoku!=None and int(D['fl'])<mintoku):
+      break
     nfData.append(D)
 
   return nfData
@@ -163,8 +167,8 @@ if __name__ == "__main__":
   #print("DEBUG NetFlow data: %s" % nfData)
 
   #detekce ssh bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 22 and %s" % SRC_LNET, "srcip")
-  print("DEBUG NetFlow data: %s" % nfStat)
+  nfStat=getStatNFData("dst port 22 and %s" % SRC_LNET, "srcip", mintoku=30)
+  print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
     ruznych=len(getStatNFData("dst port 22 and %s" % SRC_LNET, "dstip"))
@@ -172,12 +176,13 @@ if __name__ == "__main__":
 
   #detekce telnet bruteforce z vnitrni site
   nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip")
-  print("DEBUG NetFlow data: %s" % nfStat)
+  print("\nDEBUG NetFlow data (telnet): %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
     ruznych=len(getStatNFData("dst port 23 and %s" % SRC_LNET, "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
+  #TODO nebudeme resit jinak?
   #detekce velke mnozstvi oteviranych spojeni
-  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip")
-  print("DEBUG NetFlow data: %s" % nfStat)
+  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip", mintoku=5000)
+  print("\nDEBUG NetFlow data (mnoho spojeni): %s" % nfStat)
