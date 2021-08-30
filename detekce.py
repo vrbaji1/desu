@@ -58,7 +58,7 @@ def getStatNFData(filtr, agreg, mintoku=None):
     prikaz = ["nfdump","-M","/netflow-zakaznicke/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
   else:
     prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
-  print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
+  #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
 
@@ -218,6 +218,11 @@ if __name__ == "__main__":
     print("DEBUG %s: %s" % (i['val'],i['fl']))
     ruznych=len(getStatNFData("dst port 23 and %s" % SRC_LNET, "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
+  #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
+  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_LNET, "srcip", mintoku=0)
+  print("\nDEBUG NetFlow data (WSD): %s" % nfStat)
 
   #detekce velke mnozstvi oteviranych spojeni - TODO nebudeme resit jinak?
   nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip", mintoku=10000)
