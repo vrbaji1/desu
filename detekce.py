@@ -208,16 +208,12 @@ if __name__ == "__main__":
   print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port 22 and %s" % SRC_LNET, "dstip"))
+    ruznych=len(getStatNFData("dst port 22 and %s and src ip %s" % (SRC_LNET, i['val']), "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce telnet bruteforce z vnitrni site
   nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip")
   print("\nDEBUG NetFlow data (telnet): %s" % nfStat)
-  for i in nfStat:
-    print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port 23 and %s" % SRC_LNET, "dstip"))
-    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
   #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
