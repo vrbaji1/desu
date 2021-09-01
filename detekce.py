@@ -4,12 +4,17 @@
 # TODO par prikazu, co by se mohly hodit dal
 # time nfdump -r nfcapd.tmp 'dst port 22 and (src net 10.0.0.0/8)' -A srcip
 # time nfdump -r nfcapd.tmp 'dst port 22 and src ip 10.10.1.181' -s dstip/flows
+#
+## Pro obraceny smer - tedy utoky z internetu
+# nfdump -r nfcapd.202108301610 -s srcport
+# nfdump -r nfcapd.202108301610 -s dstport
+# kontrolovat, kdo nam skenuje otevrene porty ssh, telnet, WDS 3702 apod; k blokaci je ale nutne vedet, ze zdrojova IP neni zfalsovana!
 
 """
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 30.7.2o21
-Posledni uprava: 20.8.2o21
+Posledni uprava: 1.9.2o21
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os
@@ -212,12 +217,20 @@ if __name__ == "__main__":
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce telnet bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip")
+  nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip", mintoku=5)
   print("\nDEBUG NetFlow data (telnet): %s" % nfStat)
+
+  #detekce MikroTik sluzby: TCP 8291 - Winbox, 8728 - API, 8729 - API-SSL
+  nfStat=getStatNFData("dst port in [8291,8728,8729] and %s" % SRC_LNET, "srcip", mintoku=30)
+  print("\nDEBUG NetFlow data (MikroTik sluzby): %s" % nfStat)
+  for i in nfStat:
+    print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("dst port in [8291,8728,8729] and %s and src ip %s" % (SRC_LNET, i['val']), "dstip"))
+    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
   #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
-  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_LNET, "srcip", mintoku=0)
+  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_LNET, "srcip", mintoku=3)
   print("\nDEBUG NetFlow data (WSD): %s" % nfStat)
 
   #detekce velke mnozstvi oteviranych spojeni - TODO nebudeme resit jinak?
