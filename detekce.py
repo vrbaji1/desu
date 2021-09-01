@@ -212,9 +212,10 @@ if __name__ == "__main__":
   nfStat=getStatNFData("dst port 22 and %s" % SRC_LNET, "srcip", mintoku=30)
   print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
-    print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port 22 and %s and src ip %s" % (SRC_LNET, i['val']), "dstip"))
-    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+    #print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("dst port 22 and src ip %s" % (i['val']), "dstip"))
+    if (int(i['fl'])>200 or ruznych>5):
+      print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce telnet bruteforce z vnitrni site
   nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip", mintoku=5)
@@ -225,7 +226,7 @@ if __name__ == "__main__":
   print("\nDEBUG NetFlow data (MikroTik sluzby): %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port in [8291,8728,8729] and %s and src ip %s" % (SRC_LNET, i['val']), "dstip"))
+    ruznych=len(getStatNFData("dst port in [8291,8728,8729] and src ip %s" % (i['val']), "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
@@ -233,9 +234,9 @@ if __name__ == "__main__":
   nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_LNET, "srcip", mintoku=3)
   print("\nDEBUG NetFlow data (WSD): %s" % nfStat)
 
-  #detekce velke mnozstvi oteviranych spojeni - TODO nebudeme resit jinak?
-  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip", mintoku=10000)
-  print("\nDEBUG NetFlow data (mnoho spojeni): %s" % nfStat)
+  #detekce velke mnozstvi oteviranych spojeni
+  nfStat=getStatNFData("packets<2 and %s" % SRC_LNET, "srcip", mintoku=5000)
+  print("\nDEBUG NetFlow data (mnoho spojeni jen s 1 paketem): %s" % nfStat)
 
   #detekce dle TCP priznaku Urgent - zatim jen testovaci
   nfStat=getStatNFData("flags U and %s" % SRC_LNET, "srcip", mintoku=100)
@@ -244,3 +245,11 @@ if __name__ == "__main__":
   #detekce velkeho mnozstvi UDP toku - zatim jen testovaci
   nfStat=getStatNFData("proto UDP and %s" % SRC_LNET, "srcip", mintoku=10000)
   print("\nDEBUG NetFlow data (mnoho UDP spojeni): %s" % nfStat)
+
+  #detekce skenovani UDP port 4444 - zatim jen testovaci
+  nfStat=getStatNFData("proto UDP and dst port 4444 and %s" % SRC_LNET, "srcip", mintoku=100)
+  print("\nDEBUG NetFlow data (4444): %s" % nfStat)
+  for i in nfStat:
+    print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("proto UDP and dst port 4444 and src ip %s" % (i['val']), "dstip"))
+    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
