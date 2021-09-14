@@ -229,6 +229,15 @@ if __name__ == "__main__":
     ruznych=len(getStatNFData("dst port in [8291,8728,8729] and src ip %s" % (i['val']), "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
+  #detekce SMB bruteforce: TCP 445
+  nfStat=getStatNFData("dst port 445 and %s" % SRC_LNET, "srcip", mintoku=10)
+  print("\nDEBUG NetFlow data (SMB):")
+  for i in nfStat:
+    #print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("dst port 445 and src ip %s" % (i['val']), "dstip"))
+    if (int(i['fl'])>300 or ruznych>2):
+      print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
   #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
   nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_LNET, "srcip", mintoku=3)
