@@ -14,7 +14,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 30.7.2o21
-Posledni uprava: 1.9.2o21
+Posledni uprava: 30.9.2o21
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os
@@ -237,6 +237,16 @@ if __name__ == "__main__":
     ruznych=len(getStatNFData("dst port 445 and src ip %s" % (i['val']), "dstip"))
     if (int(i['fl'])>300 or ruznych>2):
       print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #TODO detekce DNS server: UDP 53 - skutecne chteji provozovat DNS server? - lze pouzit na amplification attack
+  #nfStat=getStatNFData("src port 53 and proto udp and %s" % SRC_LNET, "srcip", mintoku=300)
+  nfStat=getStatNFData("src port 53 and proto udp and src net 10.0.0.0/12", "srcip", mintoku=300)
+  print("\nDEBUG NetFlow data (UDP DNS): %s" % nfStat)
+
+  #detekce NTP server: UDP 123 - skutecne chteji provozovat NTP server? - lze pouzit na amplification attack
+  nfStat=getStatNFData("src port 123 and proto udp and %s" % SRC_LNET, "srcip", mintoku=100)
+  #nfStat=getStatNFData("src port 123 and proto udp and src net 10.0.0.0/12", "srcip", mintoku=10)
+  print("\nDEBUG NetFlow data (NTP): %s" % nfStat)
 
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
   #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
