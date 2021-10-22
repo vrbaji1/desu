@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 15.10.2021
+Posledni uprava: 22.10.2021
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os
@@ -138,9 +138,22 @@ if __name__ == "__main__":
       sys.exit(1)
 
   #TODO zkusebne neco vycist
-  nfData=getStatNFData("dst port 22 and %s" % DST_LNET, "srcip")
-  tmpPamet=sys.getsizeof(nfData)
-  for i in nfData:
-    tmpPamet+=sys.getsizeof(i)
-  print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
-  print("DEBUG NetFlow data: %s" % nfData)
+  #nfData=getStatNFData("dst port 22 and %s" % DST_LNET, "srcip")
+  #tmpPamet=sys.getsizeof(nfData)
+  #for i in nfData:
+  #  tmpPamet+=sys.getsizeof(i)
+  #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
+  #print("DEBUG NetFlow data: %s" % nfData)
+
+  #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
+  nfStat=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s" % DST_LNET, "srcip", mintoku=1000)
+  print("\nDEBUG NetFlow data (mnoho spojeni jen s 1 paketem): %s\n" % nfStat)
+  #projdeme vsechny takove IP z netu, ktere mely navazano vice nez X spojeni
+  for i in nfStat:
+    print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    nfStat_ip=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s and src ip %s" % (DST_LNET,i['val']), "dstport", mintoku=100)
+    print("DEBUG %s : %s" % (i['val'],nfStat_ip))
+    #projit porty, na ktere bylo navazano vic nez Y spojeni
+    for j in nfStat_ip:
+      print("DEBUG ip %s dst port %s : flows %s" % (i['val'],j['val'],j['fl']))
+    print()
