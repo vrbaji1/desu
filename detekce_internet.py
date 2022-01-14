@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 22.10.2021
+Posledni uprava: 14.1.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os
@@ -144,6 +144,28 @@ if __name__ == "__main__":
   #  tmpPamet+=sys.getsizeof(i)
   #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
   #print("DEBUG NetFlow data: %s" % nfData)
+
+  #TODO SYN scan
+  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and packets < 4 and %s" % DST_LNET, "srcip", mintoku=1000)
+  print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
+  #projdeme vsechny takove IP z netu
+  for i in nfStat:
+    print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    #kontrolne, kolik maji celkem spojeni
+    debug=getStatNFData("%s and src ip %s" % (DST_LNET,i['val']), "srcip")
+    if (debug!=[]):
+      tmp_all=int(debug[0]['fl'])
+    else:
+      tmp_all=0
+    print("DEBUG all: flows %d" % (tmp_all))
+    #kontrolne, kolik maji RST TCP spojeni
+    debug=getStatNFData("proto TCP and flags R and not flags UAPSF and %s and src ip %s" % (DST_LNET,i['val']), "srcip")
+    if (debug!=[]):
+      tmp_rst=int(debug[0]['fl'])
+    else:
+      tmp_rst=0
+    print("DEBUG TCP RST: flows %d" % (tmp_rst))
+    print()
 
   #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
   nfStat=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s" % DST_LNET, "srcip", mintoku=1000)
