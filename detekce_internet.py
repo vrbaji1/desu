@@ -19,7 +19,7 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 TIME=10 #[m]
 
 #lokalni sit - zadat verejne rozsahy IPv4 i IPv6; neverejne rozsahy zde nema smysl zadavat
-DST_LNET="(dst net 10.0.0.0/8 or dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
+DST_LNET="(dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
 
 
 def usage(vystup):
@@ -45,10 +45,11 @@ def getStatNFData(filtr, agreg, mintoku=None):
   @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
   """
   #TODO nacteni dat pomoci nfdump
-  if (netflow_adr_cist!=None):
-    prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
-  else:
-    prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  #if (netflow_adr_cist!=None):
+  #  prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  #else:
+  #  prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
   #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
@@ -106,10 +107,9 @@ if __name__ == "__main__":
   #  usage(sys.stderr)
   #  sys.exit(1)
 
-  #TODO docasne pro testovani cteni jen konkretniho souboru s daty
+  #pro cteni konkretniho data dle parametru - format 2022-01-06/nfcapd.202201061540
   if (len(sys.argv) == 2):
     SOUBOR=sys.argv[1]
-    netflow_adr_cist=None
   #jinak cteni aktualnich souboru s daty ze vsech sond
   else:
     #nazev souboru je dle zacatku zaznamu, tedy TIME minut zpetne
@@ -124,18 +124,18 @@ if __name__ == "__main__":
     SOUBOR="%s/nfcapd.%s%02d" % (podadresar,soubor_cast1,soubor_cast2)
     print("DEBUG sbiram statistiky ze souboru %s\n" % SOUBOR)
 
-    L_adr=[]
-    for nfAdresar in os.listdir('/netflow-konektivity'):
-      if os.path.isdir("/netflow-konektivity/%s" % nfAdresar):
-        if (os.path.isfile("/netflow-konektivity/%s/%s" % (nfAdresar,SOUBOR))):
-          L_adr.append(nfAdresar)
-        else:
-          sys.stderr.write("WARNING Nenalezen soubor /netflow-konektivity/%s/%s , nemame udaje z dane sondy!\n" % (nfAdresar,SOUBOR))
-    netflow_adr_cist=':'.join(L_adr)
-    sys.stderr.write("DEBUG ctu z adresaru: %s\n" % netflow_adr_cist)
-    if (netflow_adr_cist==""):
-      sys.stderr.write("ERROR Nejsou dostupna zadna data, koncim!\n")
-      sys.exit(1)
+  L_adr=[]
+  for nfAdresar in os.listdir('/netflow-konektivity'):
+    if os.path.isdir("/netflow-konektivity/%s" % nfAdresar):
+      if (os.path.isfile("/netflow-konektivity/%s/%s" % (nfAdresar,SOUBOR))):
+        L_adr.append(nfAdresar)
+      else:
+        sys.stderr.write("WARNING Nenalezen soubor /netflow-konektivity/%s/%s , nemame udaje z dane sondy!\n" % (nfAdresar,SOUBOR))
+  netflow_adr_cist=':'.join(L_adr)
+  sys.stderr.write("DEBUG ctu z adresaru: %s\n" % netflow_adr_cist)
+  if (netflow_adr_cist==""):
+    sys.stderr.write("ERROR Nejsou dostupna zadna data, koncim!\n")
+    sys.exit(1)
 
   #TODO zkusebne neco vycist
   #nfData=getStatNFData("dst port 22 and %s" % DST_LNET, "srcip")
