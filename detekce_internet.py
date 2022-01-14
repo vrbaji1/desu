@@ -10,6 +10,8 @@ Posledni uprava: 14.1.2022
 
 import sys, signal, getpass, getopt, subprocess, csv, os
 from datetime import datetime, timedelta
+sys.path.append('/opt/lib')
+import dtb
 
 #standardni chovani pri CTRL+C nebo ukonceni roury
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -84,6 +86,31 @@ def getStatNFData(filtr, agreg, mintoku=None):
     nfData.append(D)
 
   return nfData
+
+
+def setAttackers(L_blokovat):
+  """ Aktualizuje informace o útočících IP adresách v databázi.
+  Prvotní blokace je na 1 hodinu, pokud je IP adresa již blokována, blokace se o 1 hodinu prodlužuje.
+  Přestože je IP adresa blokována, útoky z ní detekujeme.
+  @param L_blokovat: Seznam s útočícími IP adresami.
+  """
+  print("DEBUG detekovano k blokaci %d adres: %s" % (len(L_blokovat), L_blokovat))
+
+  conn=dtb.connect(charset="utf8", use_unicode=True)
+  cursor = conn.cursor()
+
+  for ip in L_blokovat:
+    cursor.execute("""
+      INSERT INTO net_blokace (IP, blokace_od, blokace_do)
+      VALUES (inet6_aton('%s'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL 1 HOUR)
+      ON DUPLICATE KEY UPDATE blokace_do=blokace_do + INTERVAL 1 HOUR
+      """ % ip)
+
+  #vypsat aktualni stav z dtb
+  cursor.execute("SELECT inet6_ntoa(IP), blokace_od, blokace_do FROM net_blokace")
+  rows = cursor.fetchall()
+  for IP, od, do in rows:
+    print("DEBUG %20s   %s   %s" % (IP, od, do))
 
 
 if __name__ == "__main__":
@@ -192,4 +219,5 @@ if __name__ == "__main__":
     print()
 
 
-  print("DEBUG detekovano k blokaci %d adres: %s" % (len(L_blokovat), L_blokovat))
+  #utocici IP adresy zaznamename
+  setAttackers(L_blokovat)
