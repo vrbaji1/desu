@@ -137,6 +137,10 @@ if __name__ == "__main__":
     sys.stderr.write("ERROR Nejsou dostupna zadna data, koncim!\n")
     sys.exit(1)
 
+  #seznam k blokovani - detekovani utocnici
+  L_blokovat=[]
+
+
   #TODO zkusebne neco vycist
   #nfData=getStatNFData("dst port 22 and %s" % DST_LNET, "srcip")
   #tmpPamet=sys.getsizeof(nfData)
@@ -145,13 +149,13 @@ if __name__ == "__main__":
   #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
   #print("DEBUG NetFlow data: %s" % nfData)
 
-  #TODO SYN scan
+  #SYN scan
   nfStat=getStatNFData("proto TCP and flags S and not flags UPF and packets < 4 and %s" % DST_LNET, "srcip", mintoku=1000)
   print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
     print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
-    #kontrolne, kolik maji celkem spojeni
+    #kontrolne, kolik maji celkem spojeni - TODO vytvorit funci, ktera by jen zjistila pocet toku dle filtru?
     debug=getStatNFData("%s and src ip %s" % (DST_LNET,i['val']), "srcip")
     if (debug!=[]):
       tmp_all=int(debug[0]['fl'])
@@ -165,6 +169,13 @@ if __name__ == "__main__":
     else:
       tmp_rst=0
     print("DEBUG TCP RST: flows %d" % (tmp_rst))
+    #TODO dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
+    if (int(i['fl'])+tmp_rst==tmp_all):
+      L_blokovat.append(i['val'])
+      print("DEBUG pridavam k blokaci %s" % (i['val']))
+    else:
+      #TODO rucne proverit nepridane
+      print("DEBUG NEpridavam k blokaci %s" % (i['val']))
     print()
 
   #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
@@ -179,3 +190,6 @@ if __name__ == "__main__":
     for j in nfStat_ip:
       print("DEBUG ip %s dst port %s : flows %s" % (i['val'],j['val'],j['fl']))
     print()
+
+
+  print("DEBUG detekovano k blokaci %d adres: %s" % (len(L_blokovat), L_blokovat))
