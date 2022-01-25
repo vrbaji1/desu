@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 19.1.2022
-Posledni uprava: 21.1.2022
+Posledni uprava: 25.1.2022
 """
 
 import sys, signal, getpass, getopt, ipaddress
@@ -44,12 +44,10 @@ def getFromDB(cursor):
   cursor.execute("SELECT inet6_ntoa(IP),maska FROM net_blokace")
   rows = cursor.fetchall()
   for ip,maska in rows:
-    print("DEBUG %20s/%d" % (ip, maska))
-    #TODO maska 0 by se casem nemela vubec vyskytovat
-    if (maska==0):
-      S.add("%s" % (ip))
-    else:
-      S.add("%s/%d" % (ip, maska))
+    #neocekavame vyuziti vetsi masky nez /24
+    assert(maska>=24)
+    #print("DEBUG %20s/%d" % (ip, maska))
+    S.add("%s/%d" % (ip, maska))
   return S
 
 
@@ -60,19 +58,37 @@ def getFromDevice(apiros):
   """
   S=set()
 
-  #postupne IPv4, IPv6
-  for proto in ("ip","ipv6"):
-    #print(proto)
-    vysl=apiros.command(["/%s/firewall/address-list/print" % proto,"?list=blokace","?disabled=false"])
-    for reply, attrs in vysl:
-      if reply =="!re":
-        #print("DEBUG: %s" % reply)
-        #print("DEBUG: %s" % attrs["=address"])
-        S.add(attrs["=address"])
-      elif reply=="!done":
-        None
+  #IPv4
+  vysl=apiros.command(["/ip/firewall/address-list/print","?list=blokace","?disabled=false"])
+  for reply, attrs in vysl:
+    if reply =="!re":
+      #print("DEBUG: %s" % attrs)
+      #print("DEBUG: %s" % attrs["=address"])
+      #pokud je maska /32, api ji nevypisuje, tedy ji doplnime
+      if (attrs["=address"].find('/') == -1):
+        S.add('%s/32' % attrs["=address"])
       else:
-        raise RuntimeError("ERROR %s: neocekavana odpoved \"%s\" s obsahem \"%s\"\n" % (apiros.ip,reply,str(attrs)))
+        S.add(attrs["=address"])
+    elif reply=="!done":
+      None
+    else:
+      raise RuntimeError("ERROR %s: neocekavana odpoved \"%s\" s obsahem \"%s\"\n" % (apiros.ip,reply,str(attrs)))
+
+  #IPv6
+  vysl=apiros.command(["/ipv6/firewall/address-list/print","?list=blokace","?disabled=false"])
+  for reply, attrs in vysl:
+    if reply =="!re":
+      #print("DEBUG: %s" % attrs)
+      #print("DEBUG: %s" % attrs["=address"])
+      #pokud je maska /128, api ji nevypisuje, tedy ji doplnime
+      if (attrs["=address"].find('/') == -1):
+        S.add('%s/128' % attrs["=address"])
+      else:
+        S.add(attrs["=address"])
+    elif reply=="!done":
+      None
+    else:
+      raise RuntimeError("ERROR %s: neocekavana odpoved \"%s\" s obsahem \"%s\"\n" % (apiros.ip,reply,str(attrs)))
 
   return S
 
@@ -83,7 +99,7 @@ def removeFromDevice(apiros, S):
   @param S: Sada IP adres k odebrání.
   """
   for ip in S:
-    print("DEBUG ip %s" % ip)
+    #print("DEBUG ip %s" % ip)
     #print("==IPv4? : %s" % isinstance(ipaddress.ip_network(ip), ipaddress.IPv4Network))
 
     #chovani pro IPv4/IPv6 je velmi podobne, jen je potreba provadet operace ve spravnem menu
@@ -115,7 +131,7 @@ def addToDevice(apiros, S):
   @param S: Sada IP adres k přidání do seznamu.
   """
   for ip in S:
-    print("DEBUG ip %s" % ip)
+    #print("DEBUG ip %s" % ip)
 
     #chovani pro IPv4/IPv6 je velmi podobne, jen je potreba provadet operace ve spravnem menu
     if isinstance(ipaddress.ip_network(ip), ipaddress.IPv4Network):

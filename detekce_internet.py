@@ -5,10 +5,10 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 14.1.2022
+Posledni uprava: 25.1.2022
 """
 
-import sys, signal, getpass, getopt, subprocess, csv, os
+import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
 from datetime import datetime, timedelta
 sys.path.append('/opt/lib')
 import dtb
@@ -92,25 +92,26 @@ def setAttackers(L_blokovat):
   """ Aktualizuje informace o útočících IP adresách v databázi.
   Prvotní blokace je na 1 hodinu, pokud je IP adresa již blokována, blokace se o 1 hodinu prodlužuje.
   Přestože je IP adresa blokována, útoky z ní detekujeme.
-  @param L_blokovat: Seznam s útočícími IP adresami.
+  @param L_blokovat: Seznam s útočícími síťovými rozsahy (IP, maska).
   """
   print("DEBUG detekovano k blokaci %d adres: %s" % (len(L_blokovat), L_blokovat))
 
   conn=dtb.connect(charset="utf8", use_unicode=True)
   cursor = conn.cursor()
 
-  for ip in L_blokovat:
+  for ip, maska in L_blokovat:
+    #print("DEBUG %s/%d" % (ip, maska))
     cursor.execute("""
-      INSERT INTO net_blokace (IP, blokace_od, blokace_do)
-      VALUES (inet6_aton('%s'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL 1 HOUR)
+      INSERT INTO net_blokace (IP, maska, blokace_od, blokace_do)
+      VALUES (inet6_aton('%s'), %d, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL 1 HOUR)
       ON DUPLICATE KEY UPDATE blokace_do=blokace_do + INTERVAL 1 HOUR
-      """ % ip)
+      """ % (ip, maska))
 
   #vypsat aktualni stav z dtb
-  cursor.execute("SELECT inet6_ntoa(IP), blokace_od, blokace_do FROM net_blokace")
+  cursor.execute("SELECT inet6_ntoa(IP), maska, blokace_od, blokace_do FROM net_blokace")
   rows = cursor.fetchall()
-  for IP, od, do in rows:
-    print("DEBUG %20s   %s   %s" % (IP, od, do))
+  for IP, maska, od, do in rows:
+    print("DEBUG %20s/%d   %s   %s" % (IP, maska, od, do))
 
 
 if __name__ == "__main__":
@@ -196,13 +197,18 @@ if __name__ == "__main__":
     else:
       tmp_rst=0
     print("DEBUG TCP RST: flows %d" % (tmp_rst))
-    #TODO dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
+    #dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
     if (int(i['fl'])+tmp_rst==tmp_all):
-      L_blokovat.append(i['val'])
-      print("DEBUG pridavam k blokaci %s" % (i['val']))
+      #urcit masku dle protokolu
+      if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+        maska=32
+      else:
+        maska=128
+      L_blokovat.append((i['val'],maska))
+      print("DEBUG pridavam k blokaci %s/%d" % (i['val'],maska))
     else:
       #TODO rucne proverit nepridane
-      print("DEBUG NEpridavam k blokaci %s" % (i['val']))
+      print("DEBUG NEpridavam k blokaci %s/%d" % (i['val'],maska))
     print()
 
   #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
