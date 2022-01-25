@@ -94,7 +94,7 @@ def getFromDevice(apiros):
 
 
 def removeFromDevice(apiros, S):
-  """ Na daném zařízení ddebere z blokovaných IP adres zadané IP adresy.
+  """ Na daném zařízení odebere z blokovaných IP adres zadané IP adresy.
   @param apiros: API spojení se zařízením, které nás zajímá.
   @param S: Sada IP adres k odebrání.
   """
@@ -105,8 +105,16 @@ def removeFromDevice(apiros, S):
     #chovani pro IPv4/IPv6 je velmi podobne, jen je potreba provadet operace ve spravnem menu
     if isinstance(ipaddress.ip_network(ip), ipaddress.IPv4Network):
       proto="ip"
+      #api ocekava s maskou jen rozsahy, tedy /32 masku odstranime
+      tmp=ip.find("/32")
+      if (tmp != -1):
+        ip=ip[:tmp]
     else:
       proto="ipv6"
+      #api ocekava s maskou jen rozsahy, tedy /128 masku odstranime
+      tmp=ip.find("/128")
+      if (tmp != -1):
+        ip=ip[:tmp]
 
     #musime dohledat id
     zrus=apiros.command(["/%s/firewall/address-list/print" % proto,"?address=%s" % ip,"?list=blokace", "=.proplist=.id"])
