@@ -209,6 +209,40 @@ if __name__ == "__main__":
   #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
   #print("DEBUG NetFlow data: %s" % nfData)
 
+
+  #detekce ssh bruteforce z internetu - hledame neuspesna spojeni
+  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_LNET, "srcip", mintoku=50)
+  print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
+  for i in nfStat:
+    #urcit masku dle protokolu
+    if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+      maska=32
+    else:
+      maska=128
+    if ((i['val'],maska) in L_max_doba):
+      print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji\n" % i['val'])
+      continue
+    #print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and src ip %s" % (i['val']), "dstip"))
+    if (int(i['fl'])>200 or ruznych>10):
+      print("DEBUG %s celkem %s neuspesnych spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+      #kontrolne, provadi IP krome skenovani ssh i jina spojeni, ktera nejsou jen skenovani?
+      debug=getStatNFData("src ip %s and not (proto TCP and dst port 22) and (not proto TCP or not (flags S and not flags UPF))" % (i['val']), "srcip")
+      if (debug!=[]):
+        tmp=int(debug[0]['fl'])
+      else:
+        tmp=0
+      print("DEBUG spojeni %s mimo ssh: flows %d" % (i['val'], tmp))
+      #dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
+      if (tmp==0):
+        L_blokovat.append((i['val'],maska))
+        print("DEBUG pridavam k blokaci %s/%d\n" % (i['val'],maska))
+      else:
+        #TODO rucne proverit nepridane
+        print("DEBUG NEpridavam k blokaci %s/%d\n" % (i['val'],maska))
+        None
+
+
   #SYN scan
   #TODO pripadne pro IPv6 zvlast detekci, ktera bude seskupovat dle masky /64
   nfStat=getStatNFData("proto TCP and flags S and not flags UPF and packets < 4 and %s" % DST_LNET, "srcip", mintoku=1000)
