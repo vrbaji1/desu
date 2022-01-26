@@ -19,6 +19,10 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 #jak casto jsou rotovany soubory s NetFlow daty
 TIME=10 #[m]
+#na jak dlouho blokovat detekované útočící IP
+BLOCK_TIME="1 HOUR" #SQL formát
+#maximální možný čas blokace
+MAX_BLOCK_TIME="1 DAY" #SQL formát
 
 #lokalni sit - zadat verejne rozsahy IPv4 i IPv6; neverejne rozsahy zde nema smysl zadavat
 DST_LNET="(dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
@@ -103,15 +107,17 @@ def setAttackers(L_blokovat):
     #print("DEBUG %s/%d" % (ip, maska))
     cursor.execute("""
       INSERT INTO net_blokace (IP, maska, blokace_od, blokace_do)
-      VALUES (inet6_aton('%s'), %d, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL 1 HOUR)
-      ON DUPLICATE KEY UPDATE blokace_do=blokace_do + INTERVAL 1 HOUR
-      """ % (ip, maska))
+      VALUES (inet6_aton('%s'), %d, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL %s)
+      ON DUPLICATE KEY UPDATE blokace_do=blokace_do + INTERVAL %s
+      """ % (ip, maska, BLOCK_TIME, BLOCK_TIME))
 
   #vypsat aktualni stav z dtb
-  cursor.execute("SELECT inet6_ntoa(IP), maska, blokace_od, blokace_do FROM net_blokace")
-  rows = cursor.fetchall()
-  for IP, maska, od, do in rows:
-    print("DEBUG %20s/%d   %s   %s" % (IP, maska, od, do))
+  #cursor.execute("SELECT inet6_ntoa(IP), maska, blokace_od, blokace_do FROM net_blokace")
+  #rows = cursor.fetchall()
+  #for IP, maska, od, do in rows:
+  #  print("DEBUG %20s/%d   %s   %s" % (IP, maska, od, do))
+  cursor.close()
+  conn.close()
 
 
 if __name__ == "__main__":
