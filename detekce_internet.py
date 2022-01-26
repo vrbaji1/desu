@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 25.1.2022
+Posledni uprava: 26.1.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -135,7 +135,7 @@ def getBlockedForMaxTime():
     """ % MAX_BLOCK_TIME)
   rows = cursor.fetchall()
   for IP, maska in rows:
-    print("DEBUG >max_doba: %20s/%d" % (IP, maska))
+    #print("DEBUG >max_doba: %20s/%d" % (IP, maska))
     L.append((IP, maska))
 
   cursor.close()
@@ -190,7 +190,7 @@ if __name__ == "__main__":
       else:
         sys.stderr.write("WARNING Nenalezen soubor /netflow-konektivity/%s/%s , nemame udaje z dane sondy!\n" % (nfAdresar,SOUBOR))
   netflow_adr_cist=':'.join(L_adr)
-  sys.stderr.write("DEBUG ctu z adresaru: %s\n" % netflow_adr_cist)
+  sys.stderr.write("DEBUG ctu z adresaru: %s\n\n" % netflow_adr_cist)
   if (netflow_adr_cist==""):
     sys.stderr.write("ERROR Nejsou dostupna zadna data, koncim!\n")
     sys.exit(1)
@@ -212,10 +212,10 @@ if __name__ == "__main__":
   #SYN scan
   #TODO pripadne pro IPv6 zvlast detekci, ktera bude seskupovat dle masky /64
   nfStat=getStatNFData("proto TCP and flags S and not flags UPF and packets < 4 and %s" % DST_LNET, "srcip", mintoku=1000)
-  print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
+  #print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
-    print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
     #urcit masku dle protokolu
     if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
       maska=32
@@ -223,7 +223,7 @@ if __name__ == "__main__":
       maska=128
     #zbytecne neproverovat jiz blokovane na max dobu
     if ((i['val'],maska) in L_max_doba):
-      print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji" % i['val'])
+      #print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji\n" % i['val'])
       continue
     #kontrolne, kolik maji celkem spojeni - TODO vytvorit funci, ktera by jen zjistila pocet toku dle filtru?
     debug=getStatNFData("%s and src ip %s" % (DST_LNET,i['val']), "srcip")
@@ -231,22 +231,22 @@ if __name__ == "__main__":
       tmp_all=int(debug[0]['fl'])
     else:
       tmp_all=0
-    print("DEBUG all: flows %d" % (tmp_all))
+    #print("DEBUG all: flows %d" % (tmp_all))
     #kontrolne, kolik maji RST TCP spojeni
     debug=getStatNFData("proto TCP and flags R and not flags UAPSF and %s and src ip %s" % (DST_LNET,i['val']), "srcip")
     if (debug!=[]):
       tmp_rst=int(debug[0]['fl'])
     else:
       tmp_rst=0
-    print("DEBUG TCP RST: flows %d" % (tmp_rst))
+    #print("DEBUG TCP RST: flows %d" % (tmp_rst))
     #dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
     if (int(i['fl'])+tmp_rst==tmp_all):
       L_blokovat.append((i['val'],maska))
-      print("DEBUG pridavam k blokaci %s/%d" % (i['val'],maska))
+      #print("DEBUG pridavam k blokaci %s/%d\n" % (i['val'],maska))
     else:
       #TODO rucne proverit nepridane
-      print("DEBUG NEpridavam k blokaci %s/%d" % (i['val'],maska))
-    print()
+      #print("DEBUG NEpridavam k blokaci %s/%d\n" % (i['val'],maska))
+      None
 
   #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
   nfStat=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s" % DST_LNET, "srcip", mintoku=1000)
@@ -262,5 +262,5 @@ if __name__ == "__main__":
     print()
 
 
-  #utocici IP adresy zaznamename
+  #utocici IP adresy zaznamename do databaze
   setAttackers(L_blokovat)
