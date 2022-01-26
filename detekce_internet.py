@@ -120,6 +120,30 @@ def setAttackers(L_blokovat):
   conn.close()
 
 
+def getBlockedForMaxTime():
+  """ Získá seznam blokovaných na maximální možnou dobu.
+  Takovým již nemá smysl dále prodlužovat čas blokace.
+  @return: Seznam se síťovými rozsahy (IP, maska).
+  """
+  L=[]
+
+  conn=dtb.connect(charset="utf8", use_unicode=True)
+  cursor = conn.cursor()
+  cursor.execute("""
+    SELECT inet6_ntoa(IP), maska FROM net_blokace
+    WHERE blokace_do > CURRENT_TIMESTAMP + INTERVAL %s
+    """ % MAX_BLOCK_TIME)
+  rows = cursor.fetchall()
+  for IP, maska in rows:
+    print("DEBUG >max_doba: %20s/%d" % (IP, maska))
+    L.append((IP, maska))
+
+  cursor.close()
+  conn.close()
+
+  return L
+
+
 if __name__ == "__main__":
   if (getpass.getuser() != "statistiky"):
     sys.stderr.write("Tento skript smi pouzivat jen uzivatel statistiky.\n")
@@ -173,7 +197,9 @@ if __name__ == "__main__":
 
   #seznam k blokovani - detekovani utocnici
   L_blokovat=[]
-
+  #seznam jiz blokovanych na maximalni dobu
+  L_max_doba=getBlockedForMaxTime()
+  print("DEBUG L_max_doba: %s" % L_max_doba)
 
   #TODO zkusebne neco vycist
   #nfData=getStatNFData("dst port 22 and %s" % DST_LNET, "srcip")
@@ -184,11 +210,21 @@ if __name__ == "__main__":
   #print("DEBUG NetFlow data: %s" % nfData)
 
   #SYN scan
+  #TODO pripadne pro IPv6 zvlast detekci, ktera bude seskupovat dle masky /64
   nfStat=getStatNFData("proto TCP and flags S and not flags UPF and packets < 4 and %s" % DST_LNET, "srcip", mintoku=1000)
   print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
     print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    #urcit masku dle protokolu
+    if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+      maska=32
+    else:
+      maska=128
+    #zbytecne neproverovat jiz blokovane na max dobu
+    if ((i['val'],maska) in L_max_doba):
+      print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji" % i['val'])
+      continue
     #kontrolne, kolik maji celkem spojeni - TODO vytvorit funci, ktera by jen zjistila pocet toku dle filtru?
     debug=getStatNFData("%s and src ip %s" % (DST_LNET,i['val']), "srcip")
     if (debug!=[]):
@@ -205,11 +241,6 @@ if __name__ == "__main__":
     print("DEBUG TCP RST: flows %d" % (tmp_rst))
     #dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
     if (int(i['fl'])+tmp_rst==tmp_all):
-      #urcit masku dle protokolu
-      if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
-        maska=32
-      else:
-        maska=128
       L_blokovat.append((i['val'],maska))
       print("DEBUG pridavam k blokaci %s/%d" % (i['val'],maska))
     else:
