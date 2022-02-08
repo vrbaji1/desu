@@ -217,6 +217,14 @@ if __name__ == "__main__":
     if (int(i['fl'])>200 or ruznych>5):
       print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
+  #detekce SMTP komunikace
+  nfStat=getStatNFData("dst port in [25,465,587] and %s" % SRC_LNET, "srcip", mintoku=40)
+  print("\nDEBUG NetFlow data (SMTP): %s" % nfStat)
+  for i in nfStat:
+    #print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("dst port in [25,465,587] and src ip %s" % (i['val']), "dstip"))
+    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
   #detekce telnet bruteforce z vnitrni site
   nfStat=getStatNFData("dst port 23 and %s" % SRC_LNET, "srcip", mintoku=5)
   print("\nDEBUG NetFlow data (telnet): %s" % nfStat)
