@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 26.1.2022
+Posledni uprava: 11.2.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -243,9 +243,8 @@ if __name__ == "__main__":
         None
 
 
-  #SYN scan
-  #TODO pripadne pro IPv6 zvlast detekci, ktera bude seskupovat dle masky /64
-  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and packets < 4 and %s" % DST_LNET, "srcip", mintoku=1000)
+  #SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni - zadna dokoncena spojeni
+  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_LNET, "srcip", mintoku=TIME*60)
   #print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
@@ -259,27 +258,21 @@ if __name__ == "__main__":
     if ((i['val'],maska) in L_max_doba):
       #print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji\n" % i['val'])
       continue
-    #kontrolne, kolik maji celkem spojeni - TODO vytvorit funci, ktera by jen zjistila pocet toku dle filtru?
-    debug=getStatNFData("%s and src ip %s" % (DST_LNET,i['val']), "srcip")
+    #vycist jen regulerni provoz, tedy ne SYN utok a ne jen RST a v teto situaci vynechat i toky o mene nez X paketech
+    #TODO vytvorit funkci, ktera by jen zjistila pocet toku dle filtru?
+    debug=getStatNFData("not ( (proto TCP and flags S and not flags A) or (proto TCP and flags R and not flags UAPSF) or packets<4 ) and %s and src ip %s" % (DST_LNET,i['val']), "srcip")
     if (debug!=[]):
-      tmp_all=int(debug[0]['fl'])
+      tmp_good=int(debug[0]['fl'])
     else:
-      tmp_all=0
-    #print("DEBUG all: flows %d" % (tmp_all))
-    #kontrolne, kolik maji RST TCP spojeni
-    debug=getStatNFData("proto TCP and flags R and not flags UAPSF and %s and src ip %s" % (DST_LNET,i['val']), "srcip")
-    if (debug!=[]):
-      tmp_rst=int(debug[0]['fl'])
-    else:
-      tmp_rst=0
-    #print("DEBUG TCP RST: flows %d" % (tmp_rst))
-    #dat na seznam, ty co chci blokovat - pokud provadi jen SYN scan, pripadne RST a nic jineho, tak blokovat
-    if (int(i['fl'])+tmp_rst==tmp_all):
+      tmp_good=0
+    #print("DEBUG good: flows %d" % (tmp_good))
+    #dat na seznam, ty co chci blokovat - pokud nema zadne regulerni toky a zaroven skenuje alespon X cilu, tak blokovat
+    if (tmp_good==0):
       L_blokovat.append((i['val'],maska))
-      #print("DEBUG pridavam k blokaci %s/%d\n" % (i['val'],maska))
+      #print("DEBUG pridavam k blokaci %s/%d - %s toku\n" % (i['val'],maska,i['fl']))
     else:
       #TODO rucne proverit nepridane
-      #print("DEBUG NEpridavam k blokaci %s/%d\n" % (i['val'],maska))
+      print("DEBUG NEpridavam k blokaci %s/%d - %s SYN toku, %d ok toku\n" % (i['val'],maska,i['fl'],tmp_good))
       None
 
   #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
