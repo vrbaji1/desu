@@ -248,6 +248,11 @@ if __name__ == "__main__":
         None
 
 
+  #TODO Null scan - zatim jen kontrolne - sem tam se neco objevi, ale komunikuje se obema smery a oboje ma priznaky 'NULL'
+  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  print("\nDEBUG NetFlow data (Null scan): %s\n" % nfStat)
+
+
   #SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni - zadna dokoncena spojeni
   nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_LNET, "srcip", minimum=TIME*60)
   #print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
@@ -279,6 +284,15 @@ if __name__ == "__main__":
       #TODO rucne proverit nepridane
       print("DEBUG NEpridavam k blokaci %s/%d - %s SYN toku, %d ok toku\n" % (i['val'],maska,i['fl'],tmp_good))
       None
+
+
+  #TODO FIN scan - zatim jsem nic nenasel
+  nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % DST_LNET, "srcip", minimum=0)
+  print("\nDEBUG NetFlow data (FIN scan): %s\n" % nfStat)
+
+  #TODO Xmas Tree scan - zatim jsem nic nenasel
+  nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % DST_LNET, "srcip", minimum=0)
+  print("\nDEBUG NetFlow data (Xmas Tree scan): %s\n" % nfStat)
 
 
   #UDP skenovani / utok
@@ -358,18 +372,28 @@ if __name__ == "__main__":
     L_blokovat.append((i['val'],maska))
 
 
-  #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
-  nfStat=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s" % DST_LNET, "srcip", minimum=1000)
-  print("\nDEBUG NetFlow data (mnoho spojeni jen s 1 paketem): %s\n" % nfStat)
-  #projdeme vsechny takove IP z netu, ktere mely navazano vice nez X spojeni
-  for i in nfStat:
-    print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
-    nfStat_ip=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s and src ip %s" % (DST_LNET,i['val']), "dstport", minimum=100)
-    print("DEBUG %s : %s" % (i['val'],nfStat_ip))
-    #projit porty, na ktere bylo navazano vic nez Y spojeni
-    for j in nfStat_ip:
-      print("DEBUG ip %s dst port %s : flows %s" % (i['val'],j['val'],j['fl']))
-    print()
+  #kontrolne ICMP
+  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  print("\nDEBUG NetFlow data (ICMP): %s\n" % nfStat)
+
+
+  #kontrolne dalsi protokoly nez TCP,UDP,ICMP
+  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  print("\nDEBUG NetFlow data (protokoly mimo TCP,UDP,ICMP): %s\n" % nfStat)
+
+
+  #informacne datovy provoz nad X Mbit - dle zdrojove IP
+  nfStat=getStatNFData("%s" % DST_LNET, "srcip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
+  print("\nDEBUG NetFlow data (srcip/bytes): %s\n" % nfStat)
+  if (nfStat!=[]):
+    print('DEBUG rekord src bytes: %d Mbit (src IP %s)' % (int(nfStat[0]['ibyt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
+
+
+  #informacne datovy provoz nad X Mbit - dle cilove IP
+  nfStat=getStatNFData("%s" % DST_LNET, "dstip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
+  print("\nDEBUG NetFlow data (dstip/bytes): %s\n" % nfStat)
+  if (nfStat!=[]):
+    print('DEBUG rekord dst bytes: %d Mbit (dst IP %s)' % (int(nfStat[0]['ibyt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
 
 
   #utocici IP adresy zaznamename do databaze
