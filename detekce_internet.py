@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 22.2.2022
+Posledni uprava: 26.2.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -43,19 +43,28 @@ Pouziti:
   \n""" % (sys.argv[0]))
 
 
-def getStatNFData(filtr, agreg, mintoku=None):
+def getStatNFData(filtr, agreg, poradi='flows', minimum=None):
   """ Načte statistiky z NetFlow dat dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
   @param agreg: Agregační klíč, podle kterého seskupovat záznamy
-  @param mintoku: Získat jen záznamy s alespoň takovýmto počtem toků.
-  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
+  @param poradi: Řazení záznamů - flows / bytes.
+  @param minimum: Získat jen záznamy s alespoň takovýmto počtem zadaného dle parametru poradi.
+  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl / ibyt, dle zadaneho poradi. Val je dle agregační funkce, fl je počet toků, ibyt je počet Bytů.
   """
+  #dalsi poradi mozno pridat dle manualu nfdump parametr -s a klic dle parametru -o csv
+  if (poradi=='flows'):
+    klic='fl'
+  elif (poradi=='bytes'):
+    klic='ibyt'
+  else:
+    raise RuntimeError("ERROR Nezname poradi: '%s'!" % (poradi))
+
   #TODO nacteni dat pomoci nfdump
   #if (netflow_adr_cist!=None):
   #  prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
   #else:
   #  prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
-  prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/%s" % (agreg, poradi),"-n0"]
   #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
@@ -63,7 +72,7 @@ def getStatNFData(filtr, agreg, mintoku=None):
   if (stderr):
     raise RuntimeError("ERROR Spusteni nfdump prikazu v getStatNFData skoncilo chybou: '%s'!" % (stderr.decode()))
 
-  chcemeKlice=['val', 'fl']
+  chcemeKlice=['val', klic]
   nfData=[]
   tmpD=D=None
   reader=csv.reader(stdout.decode().strip().split('\n'))
@@ -84,8 +93,8 @@ def getStatNFData(filtr, agreg, mintoku=None):
     #ale nechame si jen klice, ktere nas zajimaji
     D = dict((k, tmpD[k]) for k in chcemeKlice)
     #print(str(D))
-    #filtrace podle mintoku, pokud je zapnuto
-    if (mintoku!=None and int(D['fl'])<mintoku):
+    #filtrace podle parametru minimum, pokud je zapnuto
+    if (minimum!=None and int(D[klic])<minimum):
       break
     nfData.append(D)
 
@@ -211,7 +220,7 @@ if __name__ == "__main__":
 
 
   #detekce ssh bruteforce z internetu - hledame neuspesna spojeni
-  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_LNET, "srcip", mintoku=50)
+  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_LNET, "srcip", minimum=50)
   print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
     #urcit masku dle protokolu
@@ -244,7 +253,7 @@ if __name__ == "__main__":
 
 
   #SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni - zadna dokoncena spojeni
-  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_LNET, "srcip", mintoku=TIME*60)
+  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_LNET, "srcip", minimum=TIME*60)
   #print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
@@ -280,11 +289,11 @@ if __name__ == "__main__":
   #S UDP je detekce problematicka, snazime se tedy odchytit pripady, ktere jsou ocividne a nenachazime zde regulerni komunikaci.
   #Detekujeme IP, ze kterych je mnoho toku s jen 1 paketem. Pokud obracenym smerem detekujeme minumum toku a zaroven se takto dana IP snazi
   #  komunikovat s mnoha nasimi IP adresami, je to adept na blokaci.
-  nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_LNET, "srcip", mintoku=TIME*60)
+  nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_LNET, "srcip", minimum=TIME*60)
   #print("\nDEBUG NetFlow data (UDP scan / attack): %s\n" % nfStat)
   print("\nDEBUG NetFlow data (UDP scan / attack):\n")
   #Kvuli optimalizaci ziskame i UDP komunikaci obracenym smerem, jiz bez omezeni na 1 paket, optimalni je cca do 50% toku puvodniho dotazu. Kde hodnota nebude hodnota, vycte se zvlast.
-  nfStat_pro_optimalizaci=getStatNFData("proto UDP", "dstip", mintoku=TIME*60*0.5)
+  nfStat_pro_optimalizaci=getStatNFData("proto UDP", "dstip", minimum=TIME*60*0.5)
   #print("\nDEBUG optimalizace: %s\n" % nfStat_pro_optimalizaci)
   #projdeme vsechny podezrele IP z netu
   for i in nfStat:
@@ -354,12 +363,12 @@ if __name__ == "__main__":
 
 
   #TODO detekce velke mnozstvi oteviranych spojeni bez odezvy
-  nfStat=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s" % DST_LNET, "srcip", mintoku=1000)
+  nfStat=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s" % DST_LNET, "srcip", minimum=1000)
   print("\nDEBUG NetFlow data (mnoho spojeni jen s 1 paketem): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu, ktere mely navazano vice nez X spojeni
   for i in nfStat:
     print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
-    nfStat_ip=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s and src ip %s" % (DST_LNET,i['val']), "dstport", mintoku=100)
+    nfStat_ip=getStatNFData("packets<2 and not src port in [53, 80, 443, 5228] and %s and src ip %s" % (DST_LNET,i['val']), "dstport", minimum=100)
     print("DEBUG %s : %s" % (i['val'],nfStat_ip))
     #projit porty, na ktere bylo navazano vic nez Y spojeni
     for j in nfStat_ip:
