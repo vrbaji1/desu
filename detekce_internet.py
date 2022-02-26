@@ -35,8 +35,7 @@ def usage(vystup):
   vystup.write("""Detekce útoků z internetu do vnitřní sítě dle NetFlow dat.
 
   V části mojí diplomové práce se zabývám detekcí síťových útoků.
-  Tento skript má za úkol hledat různé známé vzory chování případně
-  neobvyklou komunikaci.
+  Tento skript má za úkol hledat různé typy útoků a neobvyklou komunikaci.
 
 Pouziti:
 %s [-h|--help]
@@ -59,11 +58,7 @@ def getStatNFData(filtr, agreg, poradi='flows', minimum=None):
   else:
     raise RuntimeError("ERROR Nezname poradi: '%s'!" % (poradi))
 
-  #TODO nacteni dat pomoci nfdump
-  #if (netflow_adr_cist!=None):
-  #  prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
-  #else:
-  #  prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  #nacteni dat pomoci nfdump
   prikaz = ["nfdump","-M","/netflow-konektivity/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/%s" % (agreg, poradi),"-n0"]
   #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -169,10 +164,10 @@ if __name__ == "__main__":
       usage(sys.stdout)
       sys.exit()
 
-  #if (len(sys.argv) != 1):
-  #  sys.stderr.write("Spatny pocet parametru.\n")
-  #  usage(sys.stderr)
-  #  sys.exit(1)
+  if (len(sys.argv) > 2):
+    sys.stderr.write("Spatny pocet parametru.\n")
+    usage(sys.stderr)
+    sys.exit(1)
 
   #pro cteni konkretniho data dle parametru - format 2022-01-06/nfcapd.202201061540
   if (len(sys.argv) == 2):
@@ -189,7 +184,8 @@ if __name__ == "__main__":
     podadresar="%s" % cas.strftime("%Y-%m-%d")
     #format 2021-08-26/nfcapd.202108261720
     SOUBOR="%s/nfcapd.%s%02d" % (podadresar,soubor_cast1,soubor_cast2)
-    print("DEBUG sbiram statistiky ze souboru %s\n" % SOUBOR)
+
+  print("DEBUG sbiram statistiky ze souboru %s\n" % SOUBOR)
 
   L_adr=[]
   for nfAdresar in os.listdir('/netflow-konektivity'):
@@ -199,7 +195,7 @@ if __name__ == "__main__":
       else:
         sys.stderr.write("WARNING Nenalezen soubor /netflow-konektivity/%s/%s , nemame udaje z dane sondy!\n" % (nfAdresar,SOUBOR))
   netflow_adr_cist=':'.join(L_adr)
-  sys.stderr.write("DEBUG ctu z adresaru: %s\n\n" % netflow_adr_cist)
+  sys.stdout.write("DEBUG ctu z adresaru: %s\n\n" % netflow_adr_cist)
   if (netflow_adr_cist==""):
     sys.stderr.write("ERROR Nejsou dostupna zadna data, koncim!\n")
     sys.exit(1)
