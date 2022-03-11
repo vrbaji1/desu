@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 26.2.2022
+Posledni uprava: 11.3.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -24,8 +24,16 @@ BLOCK_TIME="1 HOUR" #SQL formát
 #maximální možný čas blokace
 MAX_BLOCK_TIME="1 DAY" #SQL formát
 
-#lokalni sit - zadat verejne rozsahy IPv4 i IPv6; neverejne rozsahy zde nema smysl zadavat
-DST_LNET="(dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
+#verejne rozsahy IPv4 i IPv6 poskytovatele; neverejne rozsahy zde nema smysl zadavat
+DST_ISP="(dst net 198.51.100.0/24 or dst net 2001:db8::/32)"
+
+#verejne rozsahy ISP, ktere se pouzivaji jen pro spolecny sNAT zakazniku (tedy jen IPv4 adresy) - neni zde dNAT
+DST_SNAT="(dst net 198.51.100.64/22 or dst net 198.51.100.128/22)"
+SRC_SNAT="(src net 198.51.100.64/22 or src net 198.51.100.128/22)"
+
+#verejne rozsahy ISP, ktere aktualne nejsou vyuzity - IPv4 i IPv6
+DST_NOUSE="(dst net 198.51.100.192/22 or dst net 2001:db8:f000::/36)"
+SRC_NOUSE="(src net 198.51.100.192/22 or src net 2001:db8:f000::/36)"
 
 
 def usage(vystup):
@@ -207,7 +215,7 @@ if __name__ == "__main__":
   print("DEBUG L_max_doba: %s" % L_max_doba)
 
   #TODO zkusebne neco vycist
-  #nfData=getStatNFData("dst port 22 and %s" % DST_LNET, "srcip")
+  #nfData=getStatNFData("dst port 22 and %s" % DST_ISP, "srcip")
   #tmpPamet=sys.getsizeof(nfData)
   #for i in nfData:
   #  tmpPamet+=sys.getsizeof(i)
@@ -216,7 +224,7 @@ if __name__ == "__main__":
 
 
   #detekce ssh bruteforce z internetu - hledame neuspesna spojeni
-  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_LNET, "srcip", minimum=50)
+  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_ISP, "srcip", minimum=50)
   print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
     #urcit masku dle protokolu
@@ -249,12 +257,12 @@ if __name__ == "__main__":
 
 
   #TODO Null scan - zatim jen kontrolne - sem tam se neco objevi, ale komunikuje se obema smery a oboje ma priznaky 'NULL'
-  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % DST_ISP, "srcip", minimum=TIME*60)
   print("\nDEBUG NetFlow data (Null scan): %s\n" % nfStat)
 
 
   #SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni - zadna dokoncena spojeni
-  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_ISP, "srcip", minimum=TIME*60)
   #print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
@@ -270,7 +278,7 @@ if __name__ == "__main__":
       continue
     #vycist jen regulerni provoz, tedy ne SYN utok a ne jen RST a v teto situaci vynechat i toky o mene nez X paketech
     #TODO vytvorit funkci, ktera by jen zjistila pocet toku dle filtru?
-    debug=getStatNFData("not ( (proto TCP and flags S and not flags A) or (proto TCP and flags R and not flags UAPSF) or packets<4 ) and %s and src ip %s" % (DST_LNET,i['val']), "srcip")
+    debug=getStatNFData("not ( (proto TCP and flags S and not flags A) or (proto TCP and flags R and not flags UAPSF) or packets<4 ) and %s and src ip %s" % (DST_ISP,i['val']), "srcip")
     if (debug!=[]):
       tmp_good=int(debug[0]['fl'])
     else:
@@ -287,11 +295,11 @@ if __name__ == "__main__":
 
 
   #TODO FIN scan - zatim jsem nic nenasel
-  nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % DST_LNET, "srcip", minimum=0)
+  nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % DST_ISP, "srcip", minimum=0)
   print("\nDEBUG NetFlow data (FIN scan): %s\n" % nfStat)
 
   #TODO Xmas Tree scan - zatim jsem nic nenasel
-  nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % DST_LNET, "srcip", minimum=0)
+  nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % DST_ISP, "srcip", minimum=0)
   print("\nDEBUG NetFlow data (Xmas Tree scan): %s\n" % nfStat)
 
 
@@ -299,7 +307,7 @@ if __name__ == "__main__":
   #S UDP je detekce problematicka, snazime se tedy odchytit pripady, ktere jsou ocividne a nenachazime zde regulerni komunikaci.
   #Detekujeme IP, ze kterych je mnoho toku s jen 1 paketem. Pokud obracenym smerem detekujeme minumum toku a zaroven se takto dana IP snazi
   #  komunikovat s mnoha nasimi IP adresami, je to adept na blokaci.
-  nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_ISP, "srcip", minimum=TIME*60)
   #print("\nDEBUG NetFlow data (UDP scan / attack): %s\n" % nfStat)
   print("\nDEBUG NetFlow data (UDP scan / attack):\n")
   #Kvuli optimalizaci ziskame i UDP komunikaci obracenym smerem, jiz bez omezeni na 1 paket, optimalni je cca do 50% toku puvodniho dotazu. Kde hodnota nebude hodnota, vycte se zvlast.
@@ -373,24 +381,24 @@ if __name__ == "__main__":
 
 
   #kontrolne ICMP
-  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % DST_ISP, "srcip", minimum=TIME*60)
   print("\nDEBUG NetFlow data (ICMP): %s\n" % nfStat)
 
 
   #kontrolne dalsi protokoly nez TCP,UDP,ICMP
-  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % DST_LNET, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % DST_ISP, "srcip", minimum=TIME*60)
   print("\nDEBUG NetFlow data (protokoly mimo TCP,UDP,ICMP): %s\n" % nfStat)
 
 
   #informacne datovy provoz nad X Mbit - dle zdrojove IP
-  nfStat=getStatNFData("%s" % DST_LNET, "srcip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
+  nfStat=getStatNFData("%s" % DST_ISP, "srcip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
   print("\nDEBUG NetFlow data (srcip/bytes): %s\n" % nfStat)
   if (nfStat!=[]):
     print('DEBUG rekord src bytes: %d Mbit (src IP %s)' % (int(nfStat[0]['ibyt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
 
 
   #informacne datovy provoz nad X Mbit - dle cilove IP
-  nfStat=getStatNFData("%s" % DST_LNET, "dstip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
+  nfStat=getStatNFData("%s" % DST_ISP, "dstip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
   print("\nDEBUG NetFlow data (dstip/bytes): %s\n" % nfStat)
   if (nfStat!=[]):
     print('DEBUG rekord dst bytes: %d Mbit (dst IP %s)' % (int(nfStat[0]['ibyt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
