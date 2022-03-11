@@ -303,14 +303,11 @@ if __name__ == "__main__":
   print("\nDEBUG NetFlow data (Xmas Tree scan): %s\n" % nfStat)
 
 
-  #UDP skenovani / utok
-  #S UDP je detekce problematicka, snazime se tedy odchytit pripady, ktere jsou ocividne a nenachazime zde regulerni komunikaci.
-  #Detekujeme IP, ze kterych je mnoho toku s jen 1 paketem. Pokud obracenym smerem detekujeme minumum toku a zaroven se takto dana IP snazi
-  #  komunikovat s mnoha nasimi IP adresami, je to adept na blokaci.
+  # UDP skenovani / utok - obecny pristup - snazime se rozpoznat IP adresy, ktere skenuji nebo utoci na nase IP adresy - IP adresy s jen sNATem bez dNATu (nebo nepouzivane IP) na takove dotazy nereaguji, IP skutecne pridelene kncovemu zarizeni vraci ICMP unreachable, pripadne nereaguji
   nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_ISP, "srcip", minimum=TIME*60)
   #print("\nDEBUG NetFlow data (UDP scan / attack): %s\n" % nfStat)
   print("\nDEBUG NetFlow data (UDP scan / attack):\n")
-  #Kvuli optimalizaci ziskame i UDP komunikaci obracenym smerem, jiz bez omezeni na 1 paket, optimalni je cca do 50% toku puvodniho dotazu. Kde hodnota nebude hodnota, vycte se zvlast.
+  #Kvuli optimalizaci ziskame i UDP komunikaci obracenym smerem, jiz bez omezeni na 1 paket, optimalni je cca do 50% toku puvodniho dotazu. Kde nebude vyctena hodnota, vycte se zvlast.
   nfStat_pro_optimalizaci=getStatNFData("proto UDP", "dstip", minimum=TIME*60*0.5)
   #print("\nDEBUG optimalizace: %s\n" % nfStat_pro_optimalizaci)
   #projdeme vsechny podezrele IP z netu
@@ -323,60 +320,120 @@ if __name__ == "__main__":
       maska=128
     #zbytecne neproverovat jiz blokovane na max dobu
     if ((i['val'],maska) in L_max_doba):
-      print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji\n" % i['val'])
+      #print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji\n" % i['val'])
       continue
 
     #vycist UDP smerem od nasich zakazniku na tuto IP v internetu
-    tmp_back=0
+    udp_back=0
     #nejdriv se snazime najit v jiz vyctenych datech
     for j in nfStat_pro_optimalizaci:
       if (j['val']==i['val']):
         #print("DEBUG nalezeno")
-        tmp_back=int(j['fl'])
+        udp_back=int(j['fl'])
         break
     #pokud hodnoty nemame, vycteme
-    if (tmp_back==0):
+    if (udp_back==0):
       #print("DEBUG nutno vycist hodnotu obracenym smerem")
       debug=getStatNFData("proto udp and dst ip %s" % (i['val']), "dstip")
       if (debug!=[]):
         #print(debug)
-        tmp_back=int(debug[0]['fl'])
+        udp_back=int(debug[0]['fl'])
       else:
-        tmp_back=0
-    #print("DEBUG UDP obracenym smerem: flows %d" % (tmp_back))
-    #zajima nas jen kde je reakce max na 10% komunikace
-    if (tmp_back >= int(0.1*int(i['fl']))):
-      #print("DEBUG Mame alespon 10% UDP toku na tuto IP do internetu, jako smerem od ni s 1 paketem, to neni potreba dale resit.\n")
+        udp_back=0
+    #Trovnou vyradit pripady, kde je reakce na vice nez 30% komunikace
+    if (udp_back >= int(0.3*int(i['fl']))):
+      #print("DEBUG Mame alespon 30% UDP toku na tuto IP do internetu, jako smerem od ni s 1 paketem, to neni potreba dale resit.\n")
       continue
+
+    #kontrolni vypis, uz jen podezrelych
+    #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    #print("DEBUG UDP obracenym smerem: flows %d" % (udp_back))
+
+    #vycist kde je cil sNAT IP nebo neex
+    debug=getStatNFData("proto udp and packets<2 and src ip %s and (%s or %s)" % (i['val'], DST_SNAT, DST_NOUSE), "srcip")
+    if (debug!=[]):
+      #print(debug)
+      udp_cil_natneex=int(debug[0]['fl'])
+    else:
+      udp_cil_natneex=0
+    #print("- DEBUG UDP cil sNAT IP nebo neex: %d" % (udp_cil_natneex))
+
+    #vycist kde je cil mimo sNAT IP nebo neex
+    debug=getStatNFData("proto udp and packets<2 and src ip %s and not (%s or %s)" % (i['val'], DST_SNAT, DST_NOUSE), "srcip")
+    if (debug!=[]):
+      #print(debug)
+      udp_cil_ver=int(debug[0]['fl'])
+    else:
+      udp_cil_ver=0
+    #print("- DEBUG UDP cil mimo sNAT IP nebo neex: %d" % (udp_cil_ver))
+
+    #vycist kde je zdroj sNAT IP nebo neex
+    debug=getStatNFData("proto udp and dst ip %s and (%s or %s)" % (i['val'], SRC_SNAT, SRC_NOUSE), "dstip")
+    if (debug!=[]):
+      #print(debug)
+      udp_zdroj_natneex=int(debug[0]['fl'])
+    else:
+      udp_zdroj_natneex=0
+    #print("- DEBUG UDP zdroj sNAT IP nebo neex: %d" % (udp_zdroj_natneex))
+
+    #vycist kde je zdroj mimo sNAT IP nebo neex
+    debug=getStatNFData("proto udp and dst ip %s and not (%s or %s)" % (i['val'], SRC_SNAT, SRC_NOUSE), "dstip")
+    if (debug!=[]):
+      #print(debug)
+      udp_zdroj_ver=int(debug[0]['fl'])
+    else:
+      udp_zdroj_ver=0
+    #print("- DEBUG UDP zdroj mimo sNAT IP nebo neex: %d" % (udp_zdroj_ver))
+
+    #vycist ICMP unrechable smereme na tento cil
+    #ICMP typ zadavame zjednodusene - zajima nas unreachable, tedy ICMPv4 type 3 a ICMPv6 type 1 (odchyti to i ICMMPv6 type 3 Time Exceeded, ale to nevadi)
+    debug=getStatNFData("dst ip %s and (icmp-type 3 or icmp-type 1)" % (i['val']), "dstip")
+    if (debug!=[]):
+      #print(debug)
+      udp_icmp_unreach=int(debug[0]['fl'])
+    else:
+      udp_icmp_unreach=0
+    #print("- DEBUG ICMP unreachable na tento cil: %d" % (udp_icmp_unreach))
 
     #vycist pocet ruznych protistran
-    debug=getStatNFData("proto udp and packets<2 and src ip %s" % (i['val']), "dstip")
+    debug=getStatNFData("proto udp and src ip %s" % (i['val']), "dstip")
     if (debug!=[]):
       #print(debug)
-      tmp_different=len(debug)
+      udp_different=len(debug)
     else:
-      tmp_different=0
-    #print("DEBUG UDP ruznych protistran: %d" % (tmp_different))
-    #zajima nas jen kde se komunikuje minimalne s 20 ruznymi IP
-    if (tmp_different <= 20):
-      #print("Komunikuje jen s %d protistranami, u UDP nebudeme zasahovat, to je na ochranu u koncoveho uzivatele.\n" % (tmp_different))
-      continue
+      udp_different=0
+    #print("DEBUG UDP ruznych protistran: %d" % (udp_different))
 
-    #TODO vycist regulerni toky, ktere nejsou UDP smerem z teto IP
-    #u TCP ignorujeme viz SYN attack
-    #ICMP typ zadavame zjednodusene - zajima nas unreachable, tedy ICMPv4 type 3 a ICMPv6 type 1 (odchyti to i ICMMPv6 type 3 Time Exceeded, ale to nevadi)
-    debug=getStatNFData("src ip %s and not proto udp and (not proto tcp or (proto tcp and packets>1 and not (flags S and not flags A))) and not icmp-type 3 and not icmp-type 1" % (i['val']), "srcip")
+    #vycist regulerni toky, ktere nejsou UDP smerem z teto IP - TCP ignorujeme zjednodusene, co povazujeme za SYN attack, ICMP zde ignorujeme uplne
+    debug=getStatNFData("src ip %s and not proto udp and (not proto tcp or (proto tcp and packets>1 and not (flags S and not flags A))) and not proto icmp and not proto icmp6" % (i['val']), "srcip")
     if (debug!=[]):
       #print(debug)
-      tmp_notudp=int(debug[0]['fl'])
+      udp_notudp=int(debug[0]['fl'])
     else:
-      tmp_notudp=0
-    #print("DEBUG not UDP: %d" % (tmp_notudp))
-    if (tmp_notudp>0):
-      print("INFO Nemohu blokovat IP %s - nalezeno i %d toku, ktere nemusi byt utok - proverte rucne!.\n" % (i['val'], tmp_notudp))
+      udp_notudp=0
+    #print("DEBUG not UDP: %d" % (udp_notudp))
+
+    print("INFO UDP sken / utok detekce - IP %s - flows:%s   flows back:%s   different IP:%s   not UDP:%d" % (i['val'], i['fl'], udp_back, udp_different, udp_notudp))
+
+    ##neni to vzdy na blokaci - vyradit a informovat v pripadech, kdz blokovat nelze
+    #nachazime i jine potencialne regulerni toky
+    if (udp_notudp>0):
+      print("INFO Nemohu blokovat IP %s - nalezeno i %d toku, ktere nemusi byt utok - proverte rucne!\n" % (i['val'], udp_notudp))
+      continue
+    #spojeni navazuji zarizeni za sNAT
+    if (udp_zdroj_natneex>0):
+      print("INFO Nemohu blokovat IP %s - nalezeno i %d toku, ktere prichazi ze zarizeni bez DNAT!\n" % (i['val'], udp_zdroj_natneex))
+      continue
+    #verejne IP reaguji na pozadavky z teto IP ve vice nez 10% pripadu
+    if (udp_zdroj_ver>0.1*udp_cil_ver):
+      print("INFO Nemohu blokovat IP %s - vypada to, ze verejne IP s touto IP adresou na UDP regulerne komunikuji!\n" % (i['val']))
+      continue
+    #pokud se ve vice nez v 80% pripadu dana IP snazi komunikovat s IP ktera neni jen sNAT, neblokujeme ani kdyz se vraci mene nez v 10% ICMP unreachable
+    if (udp_cil_ver>0.8*int(i['fl']) and udp_icmp_unreach<0.1*udp_cil_ver):
+      print("INFO Nemohu blokovat IP %s - komunikuje hlavne s IP mimo sNAT a vraci se jen malo ICMP unreachable!\n" % (i['val']))
       continue
 
-    print("INFO blokace IP %s - UDP sken / utok - flows:%s   flows back:%s   different IP:%s   not UDP:%d\n" % (i['val'], i['fl'], tmp_back, tmp_different, tmp_notudp))
+    print("INFO blokuji UDP sken / utok detekce - IP %s - flows:%s   flows back:%s   different IP:%s   not UDP:%d\n" % (i['val'], i['fl'], udp_back, udp_different, udp_notudp))
     L_blokovat.append((i['val'],maska))
 
 
