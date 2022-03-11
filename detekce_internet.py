@@ -18,7 +18,7 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 #jak casto jsou rotovany soubory s NetFlow daty
-TIME=10 #[m]
+TIME=1 #[m]
 #na jak dlouho blokovat detekované útočící IP
 BLOCK_TIME="1 HOUR" #SQL formát
 #maximální možný čas blokace
@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
 
   #detekce ssh bruteforce z internetu - hledame neuspesna spojeni
-  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_ISP, "srcip", minimum=50)
+  nfStat=getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and %s" % DST_ISP, "srcip", minimum=5*TIME)
   print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
     #urcit masku dle protokolu
@@ -237,7 +237,7 @@ if __name__ == "__main__":
       continue
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
     ruznych=len(getStatNFData("proto TCP and flags S and not flags UPF and dst port 22 and packets<2 and src ip %s" % (i['val']), "dstip"))
-    if (int(i['fl'])>200 or ruznych>10):
+    if (int(i['fl'])>20*TIME or ruznych>10):
       print("DEBUG %s celkem %s neuspesnych spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
       #kontrolne, provadi IP krome skenovani ssh i jina spojeni, ktera nejsou jen skenovani?
       debug=getStatNFData("src ip %s and not (proto TCP and dst port 22) and (not proto TCP or not (flags S and not flags UPF))" % (i['val']), "srcip")
@@ -257,12 +257,12 @@ if __name__ == "__main__":
 
 
   #TODO Null scan - zatim jen kontrolne - sem tam se neco objevi, ale komunikuje se obema smery a oboje ma priznaky 'NULL'
-  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % DST_ISP, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % DST_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (Null scan): %s\n" % nfStat)
 
 
   #SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni - zadna dokoncena spojeni
-  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_ISP, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % DST_ISP, "srcip", minimum=60*TIME)
   #print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
   #projdeme vsechny takove IP z netu
   for i in nfStat:
@@ -304,11 +304,11 @@ if __name__ == "__main__":
 
 
   # UDP skenovani / utok - obecny pristup - snazime se rozpoznat IP adresy, ktere skenuji nebo utoci na nase IP adresy - IP adresy s jen sNATem bez dNATu (nebo nepouzivane IP) na takove dotazy nereaguji, IP skutecne pridelene kncovemu zarizeni vraci ICMP unreachable, pripadne nereaguji
-  nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_ISP, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("proto UDP and packets<2 and %s" % DST_ISP, "srcip", minimum=60*TIME)
   #print("\nDEBUG NetFlow data (UDP scan / attack): %s\n" % nfStat)
   print("\nDEBUG NetFlow data (UDP scan / attack):\n")
   #Kvuli optimalizaci ziskame i UDP komunikaci obracenym smerem, jiz bez omezeni na 1 paket, optimalni je cca do 50% toku puvodniho dotazu. Kde nebude vyctena hodnota, vycte se zvlast.
-  nfStat_pro_optimalizaci=getStatNFData("proto UDP", "dstip", minimum=TIME*60*0.5)
+  nfStat_pro_optimalizaci=getStatNFData("proto UDP", "dstip", minimum=60*TIME*0.5)
   #print("\nDEBUG optimalizace: %s\n" % nfStat_pro_optimalizaci)
   #projdeme vsechny podezrele IP z netu
   for i in nfStat:
@@ -438,12 +438,12 @@ if __name__ == "__main__":
 
 
   #kontrolne ICMP
-  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % DST_ISP, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % DST_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (ICMP): %s\n" % nfStat)
 
 
   #kontrolne dalsi protokoly nez TCP,UDP,ICMP
-  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % DST_ISP, "srcip", minimum=TIME*60)
+  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % DST_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (protokoly mimo TCP,UDP,ICMP): %s\n" % nfStat)
 
 
