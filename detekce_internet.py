@@ -340,7 +340,7 @@ if __name__ == "__main__":
         udp_back=int(debug[0]['fl'])
       else:
         udp_back=0
-    #Trovnou vyradit pripady, kde je reakce na vice nez 30% komunikace
+    #rovnou vyradit pripady, kde je reakce na vice nez 30% komunikace
     if (udp_back >= int(0.3*int(i['fl']))):
       #print("DEBUG Mame alespon 30% UDP toku na tuto IP do internetu, jako smerem od ni s 1 paketem, to neni potreba dale resit.\n")
       continue
@@ -385,9 +385,12 @@ if __name__ == "__main__":
       udp_zdroj_ver=0
     #print("- DEBUG UDP zdroj mimo sNAT IP nebo neex: %d" % (udp_zdroj_ver))
 
-    #vycist ICMP unrechable smereme na tento cil
+    #vycist ICMP Destination Unreachable smerem na tento cil
     #ICMP typ zadavame zjednodusene - zajima nas unreachable, tedy ICMPv4 type 3 a ICMPv6 type 1 (odchyti to i ICMMPv6 type 3 Time Exceeded, ale to nevadi)
-    debug=getStatNFData("dst ip %s and (icmp-type 3 or icmp-type 1)" % (i['val']), "dstip")
+    if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+      debug=getStatNFData("dst ip %s and icmp-type 3" % (i['val']), "dstip")
+    else:
+      debug=getStatNFData("dst ip %s and icmp-type 1" % (i['val']), "dstip")
     if (debug!=[]):
       #print(debug)
       udp_icmp_unreach=int(debug[0]['fl'])
