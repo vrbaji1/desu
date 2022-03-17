@@ -186,88 +186,81 @@ if __name__ == "__main__":
   #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
   #print("DEBUG NetFlow data: %s" % nfData)
 
-  #detekce ssh bruteforce - hledame neuspesna spojeni - vice nez 1/10s
-  nfStat=getStatNFData("proto TCP and flags S and not flags A and dst port 22 and packets<2 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
-  print("\nDEBUG NetFlow data (neuspesna ssh): %s" % nfStat)
+  #detekce skenovani SSH - hledame neuspesna spojeni - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and dst port 22 and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
+  print("\nDEBUG NetFlow data (ssh SYN): %s" % nfStat)
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("proto TCP and flags S and not flags A and dst port 22 and packets<2 and src ip %s" % (i['val']), "dstip"))
+    ruznych=len(getStatNFData("proto TCP and dst port 22 and flags S and not flags A and src ip %s" % (i['val']), "dstip"))
     print("INFO proverte rucne: IP %s celkem %s neuspesnych SSH spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
-  #detekce SMTP komunikace
-  nfStat=getStatNFData("dst port in [25,465,587] and %s" % SRC_ISP, "srcip", minimum=40)
-  print("\nDEBUG NetFlow data (SMTP): %s" % nfStat)
+  #detekce skenovani telnet - hledame neuspesna spojeni - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and dst port 23 and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
+  print("\nDEBUG NetFlow data (telnet SYN): %s" % nfStat)
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port in [25,465,587] and src ip %s" % (i['val']), "dstip"))
-    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+    ruznych=len(getStatNFData("proto TCP and dst port 23 and flags S and not flags A and src ip %s" % (i['val']), "dstip"))
+    print("INFO proverte rucne: IP %s celkem %s neuspesnych telnet spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
-  #detekce telnet bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 23 and %s" % SRC_ISP, "srcip", minimum=5)
-  print("\nDEBUG NetFlow data (telnet): %s" % nfStat)
-
-  #detekce MikroTik sluzby: TCP 8291 - Winbox, 8728 - API, 8729 - API-SSL
-  nfStat=getStatNFData("dst port in [8291,8728,8729] and %s" % SRC_ISP, "srcip", minimum=30)
-  print("\nDEBUG NetFlow data (MikroTik sluzby): %s" % nfStat)
-  for i in nfStat:
-    print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port in [8291,8728,8729] and src ip %s" % (i['val']), "dstip"))
-    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
-
-  #detekce SMB bruteforce: TCP 445
-  nfStat=getStatNFData("dst port 445 and %s" % SRC_ISP, "srcip", minimum=10)
-  print("\nDEBUG NetFlow data (SMB):")
+  #detekce skenovani mail sluzeb - hledame neuspesna spojeni - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and dst port in [25,465,587] and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
+  print("\nDEBUG NetFlow data (mail SYN): %s" % nfStat)
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port 445 and src ip %s" % (i['val']), "dstip"))
-    if (int(i['fl'])>300 or ruznych>2):
-      print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+    ruznych=len(getStatNFData("proto TCP and dst port in [25,465,587] and flags S and not flags A and src ip %s" % (i['val']), "dstip"))
+    print("INFO proverte rucne: IP %s celkem %s neuspesnych spojeni na mail sluzby na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
-  #TODO detekce DNS server: UDP 53 - skutecne chteji provozovat DNS server? - lze pouzit na amplification attack
-  #nfStat=getStatNFData("src port 53 and proto udp and %s" % SRC_ISP, "srcip", minimum=300)
-  nfStat=getStatNFData("src port 53 and proto udp and src net 10.0.0.0/12", "srcip", minimum=300)
+  #detekce skenovani MikroTik sluzeb - hledame neuspesna spojeni - vice nez 1/10s: 8291 - Winbox, 8728 - API, 8729 - API-SSL
+  nfStat=getStatNFData("proto TCP and dst port in [8291,8728,8729] and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
+  print("\nDEBUG NetFlow data (MikroTik sluzby SYN): %s" % nfStat)
+  for i in nfStat:
+    #print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("proto TCP and dst port in [8291,8728,8729] and flags S and not flags A and src ip %s" % (i['val']), "dstip"))
+    print("INFO proverte rucne: IP %s celkem %s neuspesnych spojeni na MikroTik sluzby na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #detekce skenovani SMB - hledame neuspesna spojeni - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and dst port 445 and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
+  print("\nDEBUG NetFlow data (SMB SYN): %s" % nfStat)
+  for i in nfStat:
+    #print("DEBUG %s: %s" % (i['val'],i['fl']))
+    ruznych=len(getStatNFData("proto TCP and dst port 445 and flags S and not flags A and src ip %s" % (i['val']), "dstip"))
+    print("INFO proverte rucne: IP %s celkem %s neuspesnych SMB spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #detekce DNS server: UDP 53 - skutecne chteji provozovat DNS server? - lze pouzit na amplification attack
+  nfStat=getStatNFData("src port 53 and proto udp and %s" % SRC_ISP, "srcip", minimum=60*TIME/2)
   print("\nDEBUG NetFlow data (UDP DNS): %s" % nfStat)
 
   #detekce NTP server: UDP 123 - skutecne chteji provozovat NTP server? - lze pouzit na amplification attack
-  nfStat=getStatNFData("src port 123 and proto udp and %s" % SRC_ISP, "srcip", minimum=100)
-  #nfStat=getStatNFData("src port 123 and proto udp and src net 10.0.0.0/12", "srcip", minimum=10)
+  nfStat=getStatNFData("src port 123 and proto udp and %s" % SRC_ISP, "srcip", minimum=60*TIME/6)
   print("\nDEBUG NetFlow data (NTP): %s" % nfStat)
 
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
   #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
-  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_ISP, "srcip", minimum=3)
+  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_ISP, "srcip", minimum=60*TIME/60)
   print("\nDEBUG NetFlow data (WSD): %s" % nfStat)
 
-  #detekce velke mnozstvi oteviranych spojeni
-  nfStat=getStatNFData("packets<2 and %s" % SRC_ISP, "srcip", minimum=5000)
+  #detekce velke mnozstvi oteviranych spojeni jen s 1 paketem - vice nez 50/s
+  nfStat=getStatNFData("packets<2 and %s" % SRC_ISP, "srcip", minimum=60*TIME*50)
   print("\nDEBUG NetFlow data (mnoho spojeni jen s 1 paketem): %s" % nfStat)
 
   #detekce dle TCP priznaku Urgent - zatim jen testovaci
-  nfStat=getStatNFData("flags U and %s" % SRC_ISP, "srcip", minimum=100)
+  nfStat=getStatNFData("flags U and %s" % SRC_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (TCP urgent): %s" % nfStat)
 
-  #detekce velkeho mnozstvi UDP toku - zatim jen testovaci
-  nfStat=getStatNFData("proto UDP and %s" % SRC_ISP, "srcip", minimum=10000)
+  #detekce velkeho mnozstvi UDP toku - vice nez 100/s
+  nfStat=getStatNFData("proto UDP and %s" % SRC_ISP, "srcip", minimum=60*TIME*100)
   print("\nDEBUG NetFlow data (mnoho UDP spojeni): %s" % nfStat)
 
-  #detekce skenovani UDP port 4444 - zatim jen testovaci
-  nfStat=getStatNFData("proto UDP and dst port 4444 and %s" % SRC_ISP, "srcip", minimum=100)
-  print("\nDEBUG NetFlow data (4444): %s" % nfStat)
-  for i in nfStat:
-    print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("proto UDP and dst port 4444 and src ip %s" % (i['val']), "dstip"))
-    print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
-
   #Null scan - vice nez 1/10s
-  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
   print("\nDEBUG NetFlow data (Null scan): %s\n" % nfStat)
 
   #FIN scan - vice nez 1/10s
-  nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
   print("\nDEBUG NetFlow data (FIN scan): %s\n" % nfStat)
 
   #Xmas Tree scan - vize nez 1/10s
-  nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
   print("\nDEBUG NetFlow data (Xmas Tree scan): %s\n" % nfStat)
 
   #TCP SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni
@@ -353,5 +346,5 @@ if __name__ == "__main__":
   print("\nDEBUG NetFlow data (ICMP): %s\n" % nfStat)
 
   #kontrolne dalsi protokoly nez TCP,UDP,ICMP - vize nez 1/10s
-  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
   print("\nDEBUG NetFlow data (protokoly mimo TCP,UDP,ICMP): %s\n" % nfStat)
