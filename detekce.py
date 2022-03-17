@@ -259,6 +259,18 @@ if __name__ == "__main__":
     ruznych=len(getStatNFData("proto UDP and dst port 4444 and src ip %s" % (i['val']), "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
+  #Null scan - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  print("\nDEBUG NetFlow data (Null scan): %s\n" % nfStat)
+
+  #FIN scan - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  print("\nDEBUG NetFlow data (FIN scan): %s\n" % nfStat)
+
+  #Xmas Tree scan - vize nez 1/10s
+  nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  print("\nDEBUG NetFlow data (Xmas Tree scan): %s\n" % nfStat)
+
   #TCP SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni
   nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
