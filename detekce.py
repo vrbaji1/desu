@@ -354,6 +354,12 @@ if __name__ == "__main__":
   nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % SRC_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (ICMP): %s\n" % nfStat)
 
+  #ICMP flooding - vice nez 100kbit/s
+  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % SRC_ISP, "srcip", poradi='bytes', minimum=100*1000/8*60*TIME)
+  print("\nDEBUG NetFlow data (ICMP bytes): %s\n" % nfStat)
+  for i in nfStat:
+    print("INFO proverte rucne: IP %s odesila %.1f Mbit ICMP zprav - podezreni na flooding." % (i['val'], float(i['byt'])*8/60/TIME/1000/1000))
+
   #kontrolne dalsi protokoly nez TCP,UDP,ICMP - vize nez 1/10s
   nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % SRC_ISP, "srcip", minimum=60*TIME/10)
   print("\nDEBUG NetFlow data (protokoly mimo TCP,UDP,ICMP): %s\n" % nfStat)
