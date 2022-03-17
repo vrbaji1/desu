@@ -86,7 +86,7 @@ def getStatNFData(filtr, agreg, minimum=None):
 def getNFData(filtr):
   """ Načte NetFlow data dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
-  @return: Seznam slovníků s daty. Klíčem slovníku jsou sa, da, sp, dp, pr, flg, ipkt a ibyt.
+  @return: Seznam slovníků s daty. Klíčem slovníku jsou sa, da, sp, dp, pr, flg, ipkt a byt.
   """
   #TODO nacteni dat pomoci nfdump
   prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr]
@@ -101,7 +101,7 @@ def getNFData(filtr):
   #for radek in stdout.decode().strip().split('\n'):
   #  print(radek)
 
-  chcemeKlice=['sa', 'da', 'sp', 'dp', 'pr', 'flg', 'ipkt', 'ibyt']
+  chcemeKlice=['sa', 'da', 'sp', 'dp', 'pr', 'flg', 'ipkt', 'byt']
   nfData=[]
   tmpD=D=None
   reader=csv.reader(stdout.decode().strip().split('\n'))

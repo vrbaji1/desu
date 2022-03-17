@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 11.3.2022
+Posledni uprava: 13.3.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -56,13 +56,13 @@ def getStatNFData(filtr, agreg, poradi='flows', minimum=None):
   @param agreg: Agregační klíč, podle kterého seskupovat záznamy
   @param poradi: Řazení záznamů - flows / bytes.
   @param minimum: Získat jen záznamy s alespoň takovýmto počtem zadaného dle parametru poradi.
-  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl / ibyt, dle zadaneho poradi. Val je dle agregační funkce, fl je počet toků, ibyt je počet Bytů.
+  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl / byt, dle zadaneho poradi. Val je dle agregační funkce, fl je počet toků, byt je počet Bytů.
   """
   #dalsi poradi mozno pridat dle manualu nfdump parametr -s a klic dle parametru -o csv
   if (poradi=='flows'):
     klic='fl'
   elif (poradi=='bytes'):
-    klic='ibyt'
+    klic='byt'
   else:
     raise RuntimeError("ERROR Nezname poradi: '%s'!" % (poradi))
 
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     usage(sys.stderr)
     sys.exit(1)
 
-  #pro cteni konkretniho data dle parametru - format 2022-01-06/nfcapd.202201061540
+  #pro cteni konkretniho data dle parametru - format 2022-02-24/nfcapd.202202240400
   if (len(sys.argv) == 2):
     SOUBOR=sys.argv[1]
   #jinak cteni aktualnich souboru s daty ze vsech sond
@@ -454,14 +454,14 @@ if __name__ == "__main__":
   nfStat=getStatNFData("%s" % DST_ISP, "srcip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
   print("\nDEBUG NetFlow data (srcip/bytes): %s\n" % nfStat)
   if (nfStat!=[]):
-    print('DEBUG rekord src bytes: %d Mbit (src IP %s)' % (int(nfStat[0]['ibyt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
+    print('DEBUG rekord src bytes: %d Mbit (src IP %s)' % (int(nfStat[0]['byt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
 
 
   #informacne datovy provoz nad X Mbit - dle cilove IP
   nfStat=getStatNFData("%s" % DST_ISP, "dstip", poradi='bytes', minimum=500*1000*1000/8*60*TIME)
   print("\nDEBUG NetFlow data (dstip/bytes): %s\n" % nfStat)
   if (nfStat!=[]):
-    print('DEBUG rekord dst bytes: %d Mbit (dst IP %s)' % (int(nfStat[0]['ibyt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
+    print('DEBUG rekord dst bytes: %d Mbit (dst IP %s)' % (int(nfStat[0]['byt'])*8/60/TIME/1000/1000, nfStat[0]['val']))
 
 
   #utocici IP adresy zaznamename do databaze
