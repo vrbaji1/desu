@@ -8,7 +8,7 @@ Dne: 30.7.2o21
 Posledni uprava: 16.3.2o22
 """
 
-import sys, signal, getpass, getopt, subprocess, csv, os
+import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
 from datetime import datetime, timedelta
 
 #standardni chovani pri CTRL+C nebo ukonceni roury
@@ -278,6 +278,76 @@ if __name__ == "__main__":
   for i in nfStat:
     #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
     print("INFO proverte rucne: IP %s - mozny SYN scan / attack - %s nedokoncenych pozadavku na spojeni" % (i['val'],i['fl']))
+
+  #UDP skenovani / utok - obecny pristup - snazime se rozpoznat IP adresy, ktere skenuji nebo utoci
+  nfStat=getStatNFData("proto UDP and packets<2 and %s" % SRC_ISP, "srcip", minimum=60*TIME)
+  #print("\nDEBUG NetFlow data (UDP scan / attack): %s\n" % nfStat)
+  print("\nDEBUG NetFlow data (UDP scan / attack):\n")
+  #Kvuli optimalizaci ziskame i UDP komunikaci obracenym smerem, jiz bez omezeni na 1 paket, optimalni je cca do 50% toku puvodniho dotazu. Kde nebude vyctena hodnota, vycte se zvlast.
+  #musime zvlast IPv4 a IPv6, kvuli NAT u IPv4
+  nfStat_pro_optimalizaci= getStatNFData("inet  and proto UDP", "ndstip", minimum=60*TIME*0.5)
+  nfStat_pro_optimalizaci+=getStatNFData("inet6 and proto UDP", "dstip",  minimum=60*TIME*0.5)
+  #print("\nDEBUG optimalizace: %s\n" % nfStat_pro_optimalizaci)
+  #projdeme vsechny podezrele IP z netu
+  for i in nfStat:
+    #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+
+    #vycist UDP smerem z internetu na tuto IP naseho zakaznika
+    udp_back=0
+    #nejdriv se snazime najit v jiz vyctenych datech
+    for j in nfStat_pro_optimalizaci:
+      if (j['val']==i['val']):
+        udp_back=int(j['fl'])
+        #print("DEBUG nalezeno: %d" % udp_back)
+        break
+    #pokud hodnoty nemame, vycteme
+    if (udp_back==0):
+      #print("DEBUG nutno vycist hodnotu obracenym smerem")
+      #IPv4 vs IPv6 vycteme jinak - IPv4 z NAT IP
+      if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+        debug=getStatNFData("proto udp and dst nip %s" % (i['val']), "ndstip")
+      else:
+        debug=getStatNFData("proto udp and dst ip %s" % (i['val']), "dstip")
+      if (debug!=[]):
+        #print(debug)
+        udp_back=int(debug[0]['fl'])
+      else:
+        udp_back=0
+    #Trovnou vyradit pripady, kde je reakce na vice nez 50% komunikace
+    if (udp_back >= int(0.5*int(i['fl']))):
+      #print("DEBUG Mame alespon 50% UDP toku na tuto IP do internetu, jako smerem od ni s 1 paketem, to neni potreba dale resit.\n")
+      continue
+
+    #kontrolni vypis, uz jen podezrelych
+    #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    #print("DEBUG UDP obracenym smerem: flows %d" % (udp_back))
+
+    #vycist ICMP Destination Unreachable smerem na tento cil - pokud je jen SNAT, nikdy nic nenalezne, skonci to na verejne IP
+    if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+      debug=getStatNFData("dst nip %s and icmp-type 3" % (i['val']), "ndstip")
+    else:
+      debug=getStatNFData("dst  ip %s and icmp-type 1" % (i['val']), "dstip")
+    if (debug!=[]):
+      #print(debug)
+      udp_icmp_unreach=int(debug[0]['fl'])
+    else:
+      udp_icmp_unreach=0
+    #print("- DEBUG ICMP unreachable na tento cil: %d" % (udp_icmp_unreach))
+
+    #vycist pocet ruznych protistran
+    if isinstance(ipaddress.ip_network(i['val']), ipaddress.IPv4Network):
+      debug=getStatNFData("proto udp and src ip %s" % (i['val']), "ndstip")
+    else:
+      debug=getStatNFData("proto udp and src ip %s" % (i['val']), "dstip")
+    if (debug!=[]):
+      #print(debug)
+      udp_different=len(debug)
+    else:
+      udp_different=0
+    #print("DEBUG UDP ruznych protistran: %d" % (udp_different))
+
+    #print("INFO proverte rucne: IP %s - mozny UDP scan / attack - toku:%s   toku zpet:%s   ICMP unreach zpet:%s   ruzne cile:%s\n" % (i['val'], i['fl'], udp_back, udp_icmp_unreach, udp_different))
+    print("INFO proverte rucne: IP %s - mozny UDP scan / attack - toku:%s   toku zpet:%s   ruzne cile:%s\n" % (i['val'], i['fl'], udp_back, udp_different))
 
   #kontrolne ICMP - vice nez 1/s
   nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % SRC_ISP, "srcip", minimum=60*TIME)
