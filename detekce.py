@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 30.7.2o21
-Posledni uprava: 16.3.2o22
+Posledni uprava: 17.3.2o22
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -37,15 +37,24 @@ Pouziti:
   \n""" % (sys.argv[0]))
 
 
-def getStatNFData(filtr, agreg, minimum=None):
+def getStatNFData(filtr, agreg, poradi='flows', minimum=None):
   """ Načte statistiky z NetFlow dat dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
   @param agreg: Agregační klíč, podle kterého seskupovat záznamy
-  @param minimum: Získat jen záznamy s alespoň takovýmto počtem toků.
-  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
+  @param poradi: Řazení záznamů - flows / bytes.
+  @param minimum: Získat jen záznamy s alespoň takovýmto počtem zadaného dle parametru pořadí.
+  @return: Seznam slovníků s daty. Klíčem slovníku je val a fl / byt, dle zadaneho poradi. Val je dle agregační funkce, fl je počet toků, byt je počet Bytů.
   """
+  #dalsi poradi mozno pridat dle manualu nfdump parametr -s a klic dle parametru -o csv
+  if (poradi=='flows'):
+    klic='fl'
+  elif (poradi=='bytes'):
+    klic='byt'
+  else:
+    raise RuntimeError("ERROR Nezname poradi: '%s'!" % (poradi))
+
   #nacteni dat pomoci nfdump
-  prikaz = ["nfdump","-M","/netflow-zakaznicke/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/flows" % agreg,"-n0"]
+  prikaz = ["nfdump","-M","/netflow-zakaznicke/%s" % netflow_adr_cist,"-r",SOUBOR,"-o","csv",filtr,"-s","%s/%s" % (agreg, poradi),"-n0"]
   #print("DEBUG spoustim prikaz: %s" % subprocess.list2cmdline(prikaz))
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()
@@ -53,7 +62,7 @@ def getStatNFData(filtr, agreg, minimum=None):
   if (stderr):
     raise RuntimeError("ERROR Spusteni nfdump prikazu v getStatNFData skoncilo chybou: '%s'!" % (stderr.decode()))
 
-  chcemeKlice=['val', 'fl']
+  chcemeKlice=['val', klic]
   nfData=[]
   tmpD=D=None
   reader=csv.reader(stdout.decode().strip().split('\n'))
@@ -74,8 +83,8 @@ def getStatNFData(filtr, agreg, minimum=None):
     #ale nechame si jen klice, ktere nas zajimaji
     D = dict((k, tmpD[k]) for k in chcemeKlice)
     #print(str(D))
-    #filtrace podle minimum, pokud je zapnuto
-    if (minimum!=None and int(D['fl'])<minimum):
+    #filtrace podle parametru minimum, pokud je zapnuto
+    if (minimum!=None and int(D[klic])<minimum):
       break
     nfData.append(D)
 
