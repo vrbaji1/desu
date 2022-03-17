@@ -258,3 +258,12 @@ if __name__ == "__main__":
     print("DEBUG %s: %s" % (i['val'],i['fl']))
     ruznych=len(getStatNFData("proto UDP and dst port 4444 and src ip %s" % (i['val']), "dstip"))
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+
+  #TCP SYN scan - vice nez 1/s nedokoncenych pozadavku na spojeni
+  nfStat=getStatNFData("proto TCP and flags S and not flags A and %s" % SRC_ISP, "srcip", minimum=60*TIME)
+  print("\nDEBUG NetFlow data (SYN scan): %s\n" % nfStat)
+  #projdeme vsechny takove IP vnitrni site
+  for i in nfStat:
+    #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
+    print("INFO proverte rucne: IP %s - mozny SYN scan / attack - %s nedokoncenych pozadavku na spojeni" % (i['val'],i['fl']))
+
