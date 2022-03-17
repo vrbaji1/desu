@@ -186,14 +186,13 @@ if __name__ == "__main__":
   #print('DEBUG NetFlow data maji velikost %d bytu' % tmpPamet)
   #print("DEBUG NetFlow data: %s" % nfData)
 
-  #detekce ssh bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 22 and %s" % SRC_ISP, "srcip", minimum=30)
-  print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
+  #detekce ssh bruteforce - hledame neuspesna spojeni - vice nez 1/10s
+  nfStat=getStatNFData("proto TCP and flags S and not flags A and dst port 22 and packets<2 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  print("\nDEBUG NetFlow data (neuspesna ssh): %s" % nfStat)
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
-    ruznych=len(getStatNFData("dst port 22 and src ip %s" % (i['val']), "dstip"))
-    if (int(i['fl'])>200 or ruznych>5):
-      print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
+    ruznych=len(getStatNFData("proto TCP and flags S and not flags A and dst port 22 and packets<2 and src ip %s" % (i['val']), "dstip"))
+    print("INFO proverte rucne: IP %s celkem %s neuspesnych SSH spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce SMTP komunikace
   nfStat=getStatNFData("dst port in [25,465,587] and %s" % SRC_ISP, "srcip", minimum=40)
