@@ -279,3 +279,10 @@ if __name__ == "__main__":
     #print("DEBUG ip %s: flows %s" % (i['val'],i['fl']))
     print("INFO proverte rucne: IP %s - mozny SYN scan / attack - %s nedokoncenych pozadavku na spojeni" % (i['val'],i['fl']))
 
+  #kontrolne ICMP - vice nez 1/s
+  nfStat=getStatNFData("(proto icmp or proto icmp6) and %s" % SRC_ISP, "srcip", minimum=60*TIME)
+  print("\nDEBUG NetFlow data (ICMP): %s\n" % nfStat)
+
+  #kontrolne dalsi protokoly nez TCP,UDP,ICMP - vize nez 1/10s
+  nfStat=getStatNFData("not proto tcp and not proto udp and not proto icmp and not proto icmp6 and %s" % SRC_ISP, "srcip", minimum=6*TIME)
+  print("\nDEBUG NetFlow data (protokoly mimo TCP,UDP,ICMP): %s\n" % nfStat)
