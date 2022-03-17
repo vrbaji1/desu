@@ -50,11 +50,11 @@ Pouziti:
   \n""" % (sys.argv[0]))
 
 
-def getStatNFData(filtr, agreg, mintoku=None):
+def getStatNFData(filtr, agreg, minimum=None):
   """ Načte statistiky z NetFlow dat dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
   @param agreg: Agregační klíč, podle kterého seskupovat záznamy
-  @param mintoku: Získat jen záznamy s alespoň takovýmto počtem toků.
+  @param minimum: Získat jen záznamy s alespoň takovýmto počtem toků.
   @return: Seznam slovníků s daty. Klíčem slovníku je val a fl. Val je dle agregační funkce, fl je počet toků.
   """
   #TODO nacteni dat pomoci nfdump
@@ -95,8 +95,8 @@ def getStatNFData(filtr, agreg, mintoku=None):
     #ale nechame si jen klice, ktere nas zajimaji
     D = dict((k, tmpD[k]) for k in chcemeKlice)
     #print(str(D))
-    #filtrace podle mintoku, pokud je zapnuto
-    if (mintoku!=None and int(D['fl'])<mintoku):
+    #filtrace podle minimum, pokud je zapnuto
+    if (minimum!=None and int(D['fl'])<minimum):
       break
     nfData.append(D)
 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
   #print("DEBUG NetFlow data: %s" % nfData)
 
   #detekce ssh bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 22 and %s" % SRC_ISP, "srcip", mintoku=30)
+  nfStat=getStatNFData("dst port 22 and %s" % SRC_ISP, "srcip", minimum=30)
   print("\nDEBUG NetFlow data (ssh): %s" % nfStat)
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
@@ -217,7 +217,7 @@ if __name__ == "__main__":
       print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce SMTP komunikace
-  nfStat=getStatNFData("dst port in [25,465,587] and %s" % SRC_ISP, "srcip", mintoku=40)
+  nfStat=getStatNFData("dst port in [25,465,587] and %s" % SRC_ISP, "srcip", minimum=40)
   print("\nDEBUG NetFlow data (SMTP): %s" % nfStat)
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
@@ -225,11 +225,11 @@ if __name__ == "__main__":
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce telnet bruteforce z vnitrni site
-  nfStat=getStatNFData("dst port 23 and %s" % SRC_ISP, "srcip", mintoku=5)
+  nfStat=getStatNFData("dst port 23 and %s" % SRC_ISP, "srcip", minimum=5)
   print("\nDEBUG NetFlow data (telnet): %s" % nfStat)
 
   #detekce MikroTik sluzby: TCP 8291 - Winbox, 8728 - API, 8729 - API-SSL
-  nfStat=getStatNFData("dst port in [8291,8728,8729] and %s" % SRC_ISP, "srcip", mintoku=30)
+  nfStat=getStatNFData("dst port in [8291,8728,8729] and %s" % SRC_ISP, "srcip", minimum=30)
   print("\nDEBUG NetFlow data (MikroTik sluzby): %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #detekce SMB bruteforce: TCP 445
-  nfStat=getStatNFData("dst port 445 and %s" % SRC_ISP, "srcip", mintoku=10)
+  nfStat=getStatNFData("dst port 445 and %s" % SRC_ISP, "srcip", minimum=10)
   print("\nDEBUG NetFlow data (SMB):")
   for i in nfStat:
     #print("DEBUG %s: %s" % (i['val'],i['fl']))
@@ -246,34 +246,34 @@ if __name__ == "__main__":
       print("DEBUG %s otevrelo celkem %s spojeni na %d ruznych cilu" % (i['val'],i['fl'],ruznych))
 
   #TODO detekce DNS server: UDP 53 - skutecne chteji provozovat DNS server? - lze pouzit na amplification attack
-  #nfStat=getStatNFData("src port 53 and proto udp and %s" % SRC_ISP, "srcip", mintoku=300)
-  nfStat=getStatNFData("src port 53 and proto udp and src net 10.0.0.0/12", "srcip", mintoku=300)
+  #nfStat=getStatNFData("src port 53 and proto udp and %s" % SRC_ISP, "srcip", minimum=300)
+  nfStat=getStatNFData("src port 53 and proto udp and src net 10.0.0.0/12", "srcip", minimum=300)
   print("\nDEBUG NetFlow data (UDP DNS): %s" % nfStat)
 
   #detekce NTP server: UDP 123 - skutecne chteji provozovat NTP server? - lze pouzit na amplification attack
-  nfStat=getStatNFData("src port 123 and proto udp and %s" % SRC_ISP, "srcip", mintoku=100)
-  #nfStat=getStatNFData("src port 123 and proto udp and src net 10.0.0.0/12", "srcip", mintoku=10)
+  nfStat=getStatNFData("src port 123 and proto udp and %s" % SRC_ISP, "srcip", minimum=100)
+  #nfStat=getStatNFData("src port 123 and proto udp and src net 10.0.0.0/12", "srcip", minimum=10)
   print("\nDEBUG NetFlow data (NTP): %s" % nfStat)
 
   #detekce WSD UDP - vyuzivano pro DDoS - je urceno jen pro lokalni sit - ma reagovat na multicast adrese 239.255.255.250 a ne na unicast
   #vice viz. https://www.akamai.com/blog/security/new-ddos-vector-observed-in-the-wild-wsd-attacks-hitting-35gbps
-  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_ISP, "srcip", mintoku=3)
+  nfStat=getStatNFData("proto UDP and src port 3702 and %s" % SRC_ISP, "srcip", minimum=3)
   print("\nDEBUG NetFlow data (WSD): %s" % nfStat)
 
   #detekce velke mnozstvi oteviranych spojeni
-  nfStat=getStatNFData("packets<2 and %s" % SRC_ISP, "srcip", mintoku=5000)
+  nfStat=getStatNFData("packets<2 and %s" % SRC_ISP, "srcip", minimum=5000)
   print("\nDEBUG NetFlow data (mnoho spojeni jen s 1 paketem): %s" % nfStat)
 
   #detekce dle TCP priznaku Urgent - zatim jen testovaci
-  nfStat=getStatNFData("flags U and %s" % SRC_ISP, "srcip", mintoku=100)
+  nfStat=getStatNFData("flags U and %s" % SRC_ISP, "srcip", minimum=100)
   print("\nDEBUG NetFlow data (TCP urgent): %s" % nfStat)
 
   #detekce velkeho mnozstvi UDP toku - zatim jen testovaci
-  nfStat=getStatNFData("proto UDP and %s" % SRC_ISP, "srcip", mintoku=10000)
+  nfStat=getStatNFData("proto UDP and %s" % SRC_ISP, "srcip", minimum=10000)
   print("\nDEBUG NetFlow data (mnoho UDP spojeni): %s" % nfStat)
 
   #detekce skenovani UDP port 4444 - zatim jen testovaci
-  nfStat=getStatNFData("proto UDP and dst port 4444 and %s" % SRC_ISP, "srcip", mintoku=100)
+  nfStat=getStatNFData("proto UDP and dst port 4444 and %s" % SRC_ISP, "srcip", minimum=100)
   print("\nDEBUG NetFlow data (4444): %s" % nfStat)
   for i in nfStat:
     print("DEBUG %s: %s" % (i['val'],i['fl']))
