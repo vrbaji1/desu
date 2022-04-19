@@ -40,12 +40,22 @@ Použití:
 blokace_internet.py [-h|--help]
 ```
 
+## kontrola_spam.py
+
+Detekce rozesílání nevyžádané pošty se provádí přímo na hlavních routerech v jednotlivých oblastech.
+Tento skript má za úkol kontrolovat stav blokace na těchto routerech, o vzniklé nebo ukončené blokaci informovat zákazníky, a evidovat informace v databázi.
+
+```
+Použití:
+kontrola_spam.py [-h|--help]
+```
+
 ## Spouštění plánovačem
 
-Detekce i blokace se běžně spouští pravidelně plánovačem Cron. Detekce z vnitřní sítě jednou za deset minut, detekce z internetu následovaná blokací pak každou minutu:
+Detekce, blokace i kontrola se běžně spouští pravidelně plánovačem Cron. Detekce z vnitřní sítě jednou za deset minut, detekce z internetu následovaná blokací pak každou minutu. Kontrola blokace rozesílání nevyžádané pošty stačí jednou za půl hodiny:
 
 ```
 */10 *  * * *   non-root-user /opt/detekce_utoky/detekce.py
 *    *  * * *   non-root-user /opt/detekce_utoky/detekce_internet.py && /opt/detekce_utoky/blokace_internet.py
-
+*/30 *  * * *   non-root-user /opt/detekce_utoky/kontrola_spam.py
 ```
