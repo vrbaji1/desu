@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 15.10.2021
-Posledni uprava: 13.3.2022
+Posledni uprava: 27.4.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -214,7 +214,7 @@ if __name__ == "__main__":
   L_max_doba=getBlockedForMaxTime()
   print("DEBUG L_max_doba: %s" % L_max_doba)
 
-  #TODO zkusebne neco vycist
+  #zkusebne neco vycist
   #nfData=getStatNFData("dst port 22 and %s" % DST_ISP, "srcip")
   #tmpPamet=sys.getsizeof(nfData)
   #for i in nfData:
@@ -251,12 +251,12 @@ if __name__ == "__main__":
         L_blokovat.append((i['val'],maska))
         print("DEBUG pridavam k blokaci %s/%d\n" % (i['val'],maska))
       else:
-        #TODO rucne proverit nepridane
+        #rucne proverit nepridane
         print("DEBUG NEpridavam k blokaci %s/%d\n" % (i['val'],maska))
         None
 
 
-  #TODO Null scan - zatim jen kontrolne - sem tam se neco objevi, ale komunikuje se obema smery a oboje ma priznaky 'NULL'
+  #Null scan - zatim jen kontrolne - sem tam se neco objevi, ale komunikuje se obema smery a oboje ma priznaky 'NULL'
   nfStat=getStatNFData("proto TCP and not flags ASRUPF and %s" % DST_ISP, "srcip", minimum=60*TIME)
   print("\nDEBUG NetFlow data (Null scan): %s\n" % nfStat)
 
@@ -277,7 +277,7 @@ if __name__ == "__main__":
       #print("DEBUG %s uz je blokovano na maximalni dobu, dale ji neproveruji\n" % i['val'])
       continue
     #vycist jen regulerni provoz, tedy ne SYN utok a ne jen RST a v teto situaci vynechat i toky o mene nez X paketech
-    #TODO vytvorit funkci, ktera by jen zjistila pocet toku dle filtru?
+    #vytvorit funkci, ktera by jen zjistila pocet toku dle filtru?
     debug=getStatNFData("not ( (proto TCP and flags S and not flags A) or (proto TCP and flags R and not flags UAPSF) or packets<4 ) and %s and src ip %s" % (DST_ISP,i['val']), "srcip")
     if (debug!=[]):
       tmp_good=int(debug[0]['fl'])
@@ -289,16 +289,16 @@ if __name__ == "__main__":
       L_blokovat.append((i['val'],maska))
       #print("DEBUG pridavam k blokaci %s/%d - %s toku\n" % (i['val'],maska,i['fl']))
     else:
-      #TODO rucne proverit nepridane
+      #rucne proverit nepridane
       print("DEBUG NEpridavam k blokaci %s/%d - %s SYN toku, %d ok toku\n" % (i['val'],maska,i['fl'],tmp_good))
       None
 
 
-  #TODO FIN scan - zatim jsem nic nenasel
+  #FIN scan - zatim jsem nic nenasel
   nfStat=getStatNFData("proto TCP and flags F and not flags ASRPU and packets<2 and %s" % DST_ISP, "srcip", minimum=0)
   print("\nDEBUG NetFlow data (FIN scan): %s\n" % nfStat)
 
-  #TODO Xmas Tree scan - zatim jsem nic nenasel
+  #Xmas Tree scan - zatim jsem nic nenasel
   nfStat=getStatNFData("proto TCP and flags UPF and not flags ASR and packets < 2 and %s" % DST_ISP, "srcip", minimum=0)
   print("\nDEBUG NetFlow data (Xmas Tree scan): %s\n" % nfStat)
 

@@ -4,8 +4,8 @@
 """
 Popis: Viz. usage()
 Autor: Jindrich Vrba
-Dne: 30.7.2o21
-Posledni uprava: 17.3.2o22
+Dne: 30.7.2021
+Posledni uprava: 27.4.2022
 """
 
 import sys, signal, getpass, getopt, subprocess, csv, os, ipaddress
@@ -33,7 +33,11 @@ def usage(vystup):
   Tento skript má za úkol hledat různé typy útoků a neobvyklou komunikaci.
 
 Pouziti:
+%s [soubor]
 %s [-h|--help]
+
+soubor ... číst data z konkrétního souboru, zadává se ve formátu 2022-02-24/nfcapd.202202240400
+pokud není soubor zadán, čtou se data z aktuálního souboru
   \n""" % (sys.argv[0]))
 
 
@@ -91,13 +95,13 @@ def getStatNFData(filtr, agreg, poradi='flows', minimum=None):
   return nfData
 
 
-#TODO pokud budeme pouzivat i tuto funkci, upravit nfdump viz getStatNFData
+#pokud budeme pouzivat i tuto funkci, upravit nfdump viz getStatNFData
 def getNFData(filtr):
   """ Načte NetFlow data dle zadaného filtru.
   @param filtr: Textový řetězec - filtr ve formátu nfdump (rozšířený formát tcpdump)
   @return: Seznam slovníků s daty. Klíčem slovníku jsou sa, da, sp, dp, pr, flg, ipkt a byt.
   """
-  #TODO nacteni dat pomoci nfdump
+  #nacteni dat pomoci nfdump
   prikaz = ["nfdump","-r",SOUBOR,"-o","csv",filtr]
   p1 = subprocess.Popen(prikaz, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   stdout,stderr = p1.communicate()

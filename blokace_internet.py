@@ -5,7 +5,7 @@
 Popis: Viz. usage()
 Autor: Jindrich Vrba
 Dne: 19.1.2022
-Posledni uprava: 25.1.2022
+Posledni uprava: 27.4.2022
 """
 
 import sys, signal, getpass, getopt, ipaddress
@@ -183,7 +183,7 @@ if __name__ == "__main__":
   S_dtb=getFromDB(cursor)
   print("DEBUG S_dtb: %s" % S_dtb)
 
-  #TODO testovani na jednom zarizeni
+  #testovani na jednom zarizeni
   try:
     apiros = api.ApiRos("192.0.2.254")
     S_IP=getFromDevice(apiros)
